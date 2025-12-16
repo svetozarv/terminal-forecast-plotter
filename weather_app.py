@@ -11,7 +11,7 @@ import pandas as pd
 
 # https://open-meteo.com/en/docs
 # 1. first version will be using terminal to communicate with user
-# 2. settings will be saved to a file 
+# 2. settings will be saved to a file
 
 cities = {
     "London": (51.5074, -0.1278),
@@ -24,8 +24,9 @@ cities = {
     "Kair": (30.0444, 31.2357),
     "Kapsztad": (-33.9249, 18.4241),
     "Sydney": (-33.8688, 151.2093),
-    "Warszawa": (52.2297, 21.0122)
+    "Warszawa": (52.2297, 21.0122),
 }
+
 
 class ApiSession:
     def __init__(self, latitude=None, longitude=None):
@@ -38,24 +39,42 @@ class ApiSession:
         if not isinstance(latitude, float) or not isinstance(longitude, float):
             latitude = default_lat
             longitude = default_lon
-        
+
         # Setup the Open-Meteo API client with cache and retry on error
-        self.cache_session = requests_cache.CachedSession('.cache', expire_after=3600)
+        self.cache_session = requests_cache.CachedSession(".cache", expire_after=3600)
         self.retry_session = retry(self.cache_session, retries=5, backoff_factor=0.2)
         self.openmeteo = openmeteo_requests.Client(session=self.retry_session)
-        
+
         self.url = "https://api.open-meteo.com/v1/forecast"
         self.params = {
-        	"latitude": default_lat if not latitude else latitude,
-        	"longitude": default_lon if not longitude else longitude,
-        	"daily": [
-                "temperature_2m_max", "temperature_2m_min", "apparent_temperature_max", "apparent_temperature_min",
-                "sunrise", "sunset", "daylight_duration", "precipitation_hours", "precipitation_sum"
+            "latitude": default_lat if not latitude else latitude,
+            "longitude": default_lon if not longitude else longitude,
+            "daily": [
+                "temperature_2m_max",
+                "temperature_2m_min",
+                "apparent_temperature_max",
+                "apparent_temperature_min",
+                "sunrise",
+                "sunset",
+                "daylight_duration",
+                "precipitation_hours",
+                "precipitation_sum",
             ],
-        	"hourly": ["temperature_2m", "apparent_temperature", "relative_humidity_2m"],
-        	"current": [
-                "temperature_2m", "relative_humidity_2m", "apparent_temperature", "is_day",
-                "wind_speed_10m", "wind_direction_10m", "precipitation", "cloud_cover", "surface_pressure"
+            "hourly": [
+                "temperature_2m",
+                "apparent_temperature",
+                "relative_humidity_2m",
+            ],
+            "current": [
+                "temperature_2m",
+                "relative_humidity_2m",
+                "apparent_temperature",
+                "is_day",
+                "wind_speed_10m",
+                "wind_direction_10m",
+                "precipitation",
+                "cloud_cover",
+                "surface_pressure",
             ],
             "timezone": "auto",
         }
@@ -78,7 +97,7 @@ class ApiSession:
     def get_current_weather(self, latitude, longitude, verbose=True):
         """
         Get (print) current weather
-        """ 
+        """
         # TODO: add if statement, so there is no need to do it every time
         response = self.make_api_call(latitude, longitude)
         if verbose:
@@ -123,19 +142,22 @@ class ApiSession:
         hourly_apparent_temperature = hourly.Variables(1).ValuesAsNumpy()
         hourly_relative_humidity_2m = hourly.Variables(2).ValuesAsNumpy()
 
-        hourly_data = {"date": pd.date_range(
-        	start = pd.to_datetime(hourly.Time(), unit = "s", utc = True),
-        	end =  pd.to_datetime(hourly.TimeEnd(), unit = "s", utc = True),
-        	freq = pd.Timedelta(seconds = hourly.Interval()),
-        	inclusive = "left"
-        )}
+        hourly_data = {
+            "date": pd.date_range(
+                start=pd.to_datetime(hourly.Time(), unit="s", utc=True),
+                end=pd.to_datetime(hourly.TimeEnd(), unit="s", utc=True),
+                freq=pd.Timedelta(seconds=hourly.Interval()),
+                inclusive="left",
+            )
+        }
 
         hourly_data["temperature_2m"] = hourly_temperature_2m
         hourly_data["apparent_temperature"] = hourly_apparent_temperature
         hourly_data["relative_humidity_2m"] = hourly_relative_humidity_2m
 
-        hourly_dataframe = pd.DataFrame(data = hourly_data)
+        hourly_dataframe = pd.DataFrame(data=hourly_data)
         print("\nHourly data\n", hourly_dataframe)
+
 
 class WeatherApp:
     def __init__(self):
@@ -143,11 +165,19 @@ class WeatherApp:
         Setup the Open-Meteo API client with cache and retry on error
         """
         self._url = "https://api.open-meteo.com/v1/forecast"
-        self._cache_session = requests_cache.CachedSession('.cache', expire_after=3_600)
+        self._cache_session = requests_cache.CachedSession(".cache", expire_after=3_600)
         self._retry_session = retry(self._cache_session, retries=5, backoff_factor=0.2)
         self._openmeteo = openmeteo_requests.Client(session=self._retry_session)
 
-    def get_data_from_api(self, latitude, longitude, elevation=None, timezone=None, start_date=None, end_date=None):
+    def get_data_from_api(
+        self,
+        latitude,
+        longitude,
+        elevation=None,
+        timezone=None,
+        start_date=None,
+        end_date=None,
+    ):
         """
         Make a GET request of weather data for provided city
         """
@@ -167,9 +197,6 @@ class WeatherApp:
         print(f"Timezone difference to GMT+0: {response.UtcOffsetSeconds()}s")
         return response
 
-    
-
-
     def create_alert(self):
         """
         Save alert data to file (or internal data structure but saved on app close via del?)
@@ -178,7 +205,7 @@ class WeatherApp:
 
     def draw_plot(self):
         pass
-     
+
 
 class TUI:
     def show_weather_info(self):
@@ -204,6 +231,7 @@ class UserSettings:
 
     def save_prompt(self):
         pass
+
 
 @dataclass
 class Alert:
