@@ -1,6 +1,8 @@
 # Custom
 LangtonAnt.py
 
+.cache.sqlite
+.vscode
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
