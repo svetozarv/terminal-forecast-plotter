@@ -1,13 +1,14 @@
 import time
 from dataclasses import dataclass
-import openmeteo_requests
-from openmeteo_requests.Client import WeatherApiResponse
-import requests_cache
-from retry_requests import retry
-import matplotlib
-import isort
+
 import black
+import isort
+import matplotlib
+import openmeteo_requests
 import pandas as pd
+import requests_cache
+from openmeteo_requests.Client import WeatherApiResponse
+from retry_requests import retry
 
 # https://open-meteo.com/en/docs
 # 1. first version will be using terminal to communicate with user
@@ -157,6 +158,47 @@ class ApiSession:
 
         hourly_dataframe = pd.DataFrame(data=hourly_data)
         print("\nHourly data\n", hourly_dataframe)
+
+    def get_daily_data(self, latitude, longitude):
+        """
+        Get daily data from the past 7 days.
+        Used for plotting.
+        """
+        # TODO: add if statement, so there is no need to do it every time
+        response = self.make_api_call(latitude, longitude)
+        # Process daily data. The order of variables needs to be the same as requested.
+        daily = response.Daily()
+        daily_temperature_2m_max = daily.Variables(0).ValuesAsNumpy()
+        daily_temperature_2m_min = daily.Variables(1).ValuesAsNumpy()
+        daily_apparent_temperature_max = daily.Variables(2).ValuesAsNumpy()
+        daily_apparent_temperature_min = daily.Variables(3).ValuesAsNumpy()
+        daily_sunrise = daily.Variables(4).ValuesInt64AsNumpy()
+        daily_sunset = daily.Variables(5).ValuesInt64AsNumpy()
+        daily_daylight_duration = daily.Variables(6).ValuesAsNumpy()
+        daily_precipitation_hours = daily.Variables(7).ValuesAsNumpy()
+        daily_precipitation_sum = daily.Variables(8).ValuesAsNumpy()
+
+        daily_data = {
+            "date": pd.date_range(
+                start=pd.to_datetime(daily.Time(), unit="s", utc=True),
+                end=pd.to_datetime(daily.TimeEnd(), unit="s", utc=True),
+                freq=pd.Timedelta(seconds=daily.Interval()),
+                inclusive="left",
+            )
+        }
+
+        daily_data["temperature_2m_max"] = daily_temperature_2m_max
+        daily_data["temperature_2m_min"] = daily_temperature_2m_min
+        daily_data["apparent_temperature_max"] = daily_apparent_temperature_max
+        daily_data["apparent_temperature_min"] = daily_apparent_temperature_min
+        daily_data["sunrise"] = daily_sunrise
+        daily_data["sunset"] = daily_sunset
+        daily_data["daylight_duration"] = daily_daylight_duration
+        daily_data["precipitation_hours"] = daily_precipitation_hours
+        daily_data["precipitation_sum"] = daily_precipitation_sum
+
+        daily_dataframe = pd.DataFrame(data=daily_data)
+        print("\nDaily data\n", daily_dataframe)
 
 
 class WeatherApp:
