@@ -101,111 +101,55 @@ class ApiSession:
         """
         # TODO: add if statement, so there is no need to do it every time
         response = self.make_api_call(latitude, longitude)
+        current = CurrentWeather(response)
         if verbose:
-            print(f"Coordinates: {response.Latitude()}°N {response.Longitude()}°E")
-            print(f"Elevation: {response.Elevation()} m asl")
-            print(f"Timezone difference to GMT+0: {response.UtcOffsetSeconds()}s")
-
-        # Process current data. The order of variables needs to be the same as requested.
-        current = response.Current()
-        current_temperature_2m = current.Variables(0).Value()
-        current_relative_humidity_2m = current.Variables(1).Value()
-        current_apparent_temperature = current.Variables(2).Value()
-        current_is_day = current.Variables(3).Value()
-        current_wind_speed_10m = current.Variables(4).Value()
-        current_wind_direction_10m = current.Variables(5).Value()
-        current_precipitation = current.Variables(6).Value()
-        current_cloud_cover = current.Variables(7).Value()
-        current_surface_pressure = current.Variables(8).Value()
-
-        if verbose:
-            print(f"\nCurrent time: {current.Time()}")
-            print(f"Current temperature_2m: {current_temperature_2m}")
-            print(f"Current relative_humidity_2m: {current_relative_humidity_2m}")
-            print(f"Current apparent_temperature: {current_apparent_temperature}")
-            print(f"Current is_day: {current_is_day}")
-            print(f"Current wind_speed_10m: {current_wind_speed_10m}")
-            print(f"Current wind_direction_10m: {current_wind_direction_10m}")
-            print(f"Current precipitation: {current_precipitation}")
-            print(f"Current cloud_cover: {current_cloud_cover}")
-            print(f"Current surface_pressure: {current_surface_pressure}")
-
-    def get_hourly_data(self, latitude=None, longitude=None):
+            current.print_info()
+                    
+    def get_hourly_data(self, latitude=None, longitude=None, verbose=True):
         """
         Get hourly data from the past 7 days.
         Used for plotting.
         """
         # TODO: add if statement, so there is no need to do it every time
-        # Process hourly data. The order of variables needs to be the same as requested.
         response = self.make_api_call(latitude, longitude)
-        hourly = response.Hourly()
-        hourly_temperature_2m = hourly.Variables(0).ValuesAsNumpy()
-        hourly_apparent_temperature = hourly.Variables(1).ValuesAsNumpy()
-        hourly_relative_humidity_2m = hourly.Variables(2).ValuesAsNumpy()
+        hourly = HourlyWeather(response)
+        if verbose:
+            hourly.print_info()
 
-        hourly_data = {
-            "date": pd.date_range(
-                start=pd.to_datetime(hourly.Time(), unit="s", utc=True),
-                end=pd.to_datetime(hourly.TimeEnd(), unit="s", utc=True),
-                freq=pd.Timedelta(seconds=hourly.Interval()),
-                inclusive="left",
-            )
-        }
-
-        hourly_data["temperature_2m"] = hourly_temperature_2m
-        hourly_data["apparent_temperature"] = hourly_apparent_temperature
-        hourly_data["relative_humidity_2m"] = hourly_relative_humidity_2m
-
-        hourly_dataframe = pd.DataFrame(data=hourly_data)
-        print("\nHourly data\n", hourly_dataframe)
-
-    def get_daily_data(self, latitude=None, longitude=None):
+    def get_daily_data(self, latitude=None, longitude=None, verbose=True):
         """
         Get daily data from the past 7 days.
         Used for plotting.
         """
         # TODO: add if statement, so there is no need to do it every time
         response = self.make_api_call(latitude, longitude)
-        # Process daily data. The order of variables needs to be the same as requested.
-        daily = response.Daily()
-        daily_temperature_2m_max = daily.Variables(0).ValuesAsNumpy()
-        daily_temperature_2m_min = daily.Variables(1).ValuesAsNumpy()
-        daily_apparent_temperature_max = daily.Variables(2).ValuesAsNumpy()
-        daily_apparent_temperature_min = daily.Variables(3).ValuesAsNumpy()
-        daily_sunrise = daily.Variables(4).ValuesInt64AsNumpy()
-        daily_sunset = daily.Variables(5).ValuesInt64AsNumpy()
-        daily_daylight_duration = daily.Variables(6).ValuesAsNumpy()
-        daily_precipitation_hours = daily.Variables(7).ValuesAsNumpy()
-        daily_precipitation_sum = daily.Variables(8).ValuesAsNumpy()
-
-        daily_data = {
-            "date": pd.date_range(
-                start=pd.to_datetime(daily.Time(), unit="s", utc=True),
-                end=pd.to_datetime(daily.TimeEnd(), unit="s", utc=True),
-                freq=pd.Timedelta(seconds=daily.Interval()),
-                inclusive="left",
-            )
-        }
-
-        daily_data["temperature_2m_max"] = daily_temperature_2m_max
-        daily_data["temperature_2m_min"] = daily_temperature_2m_min
-        daily_data["apparent_temperature_max"] = daily_apparent_temperature_max
-        daily_data["apparent_temperature_min"] = daily_apparent_temperature_min
-        daily_data["sunrise"] = daily_sunrise
-        daily_data["sunset"] = daily_sunset
-        daily_data["daylight_duration"] = daily_daylight_duration
-        daily_data["precipitation_hours"] = daily_precipitation_hours
-        daily_data["precipitation_sum"] = daily_precipitation_sum
-
-        daily_dataframe = pd.DataFrame(data=daily_data)
-        print("\nDaily data\n", daily_dataframe)
+        daily = DailyWeather(response)
+        if verbose:
+            daily.print_info()
+        
 
 class Weather:
+    """
+    Represents a json object received during API call
+    """
     def __init__(self, open_meteo_response: WeatherApiResponse):
-        # 1. All set to none and assigned during api call
-        # 2. Pass everything into construntor
-        # 3. Pass the response obj \/
+        self.latitude = open_meteo_response.Latitude()
+        self.longitude = open_meteo_response.Longitude()
+        self.elevation = open_meteo_response.Elevation()
+        self.timezone_diff_utc0 = open_meteo_response.UtcOffsetSeconds()
+
+    def print_info(self):
+        print(f"Coordinates: {self.latitude}°N {self.longitude}°E")
+        print(f"Elevation: {self.elevation} m asl")
+        print(f"Timezone difference to GMT+0: {self.timezone_diff_utc0}s")
+
+class CurrentWeather(Weather):
+    def __init__(self, open_meteo_response):
+        super().__init__(open_meteo_response)
         response = open_meteo_response.Current()
+        
+        # Process current data. The order of variables needs to be the same as requested.
+        self.time = response.Time()
         self.temperature_2m = response.Variables(0).Value()
         self.relative_humidity_2m = response.Variables(1).Value()
         self.apparent_temperature = response.Variables(2).Value()
@@ -216,14 +160,99 @@ class Weather:
         self.cloud_cover = response.Variables(7).Value()
         self.surface_pressure = response.Variables(8).Value()
 
-class CurrentWeather(Weather):
-    pass
+    def print_info(self):
+        print("\n--------- Current weather ---------")
+        super().print_info()
+        print(f"\nCurrent time: {self.time}")
+        print(f"Current temperature_2m: {self.temperature_2m}")
+        print(f"Current relative_humidity_2m: {self.relative_humidity_2m}")
+        print(f"Current apparent_temperature: {self.apparent_temperature}")
+        print(f"Current is_day: {self.is_day}")
+        print(f"Current wind_speed_10m: {self.wind_speed_10m}")
+        print(f"Current wind_direction_10m: {self.wind_direction_10m}")
+        print(f"Current precipitation: {self.precipitation}")
+        print(f"Current cloud_cover: {self.cloud_cover}")
+        print(f"Current surface_pressure: {self.surface_pressure}")
 
 class HourlyWeather(Weather):
-    pass
+    def __init__(self, open_meteo_response):
+        """
+        Process hourly data. The order of variables needs to be the same as requested.
+        """
+        super().__init__(open_meteo_response)
+        hourly = open_meteo_response.Hourly()
+        
+        self.time = hourly.Time()
+        self.time_end = hourly.TimeEnd()
+        self.interval = hourly.Interval()
+        
+        self.temperature_2m = hourly.Variables(0).ValuesAsNumpy()
+        self.apparent_temperature = hourly.Variables(1).ValuesAsNumpy()
+        self.relative_humidity_2m = hourly.Variables(2).ValuesAsNumpy()
+        
+    def print_info(self):
+        super().print_info()
+        hourly_data = {
+            "date": pd.date_range(
+                start=pd.to_datetime(self.time, unit="s", utc=True),
+                end=pd.to_datetime(self.time_end, unit="s", utc=True),
+                freq=pd.Timedelta(seconds=self.interval),
+                inclusive="left",
+            )
+        }
+
+        hourly_data["temperature_2m"] = self.temperature_2m
+        hourly_data["apparent_temperature"] = self.apparent_temperature
+        hourly_data["relative_humidity_2m"] = self.relative_humidity_2m
+
+        hourly_dataframe = pd.DataFrame(data=hourly_data)
+        print("\nHourly data\n", hourly_dataframe)
 
 class DailyWeather(Weather):
-    pass
+    def __init__(self, open_meteo_response):
+        super().__init__(open_meteo_response)
+        daily = open_meteo_response.Daily()
+
+        # TODO: Move to common part
+        self.time = daily.Time()
+        self.time_end = daily.TimeEnd()
+        self.interval = daily.Interval()
+
+        # Process daily data. The order of variables needs to be the same as requested.
+        self.temperature_2m_max = daily.Variables(0).ValuesAsNumpy()
+        self.temperature_2m_min = daily.Variables(1).ValuesAsNumpy()
+        self.apparent_temperature_max = daily.Variables(2).ValuesAsNumpy()
+        self.apparent_temperature_min = daily.Variables(3).ValuesAsNumpy()
+        self.sunrise = daily.Variables(4).ValuesInt64AsNumpy()
+        self.sunset = daily.Variables(5).ValuesInt64AsNumpy()
+        self.daylight_duration = daily.Variables(6).ValuesAsNumpy()
+        self.precipitation_hours = daily.Variables(7).ValuesAsNumpy()
+        self.precipitation_sum = daily.Variables(8).ValuesAsNumpy()
+
+    def print_info(self):
+        super().print_info()
+
+        daily_data = {
+            "date": pd.date_range(
+                start=pd.to_datetime(self.time, unit="s", utc=True),
+                end=pd.to_datetime(self.time_end, unit="s", utc=True),
+                freq=pd.Timedelta(seconds=self.interval),
+                inclusive="left",
+            )
+        }
+
+        daily_data["temperature_2m_max"] = self.temperature_2m_max
+        daily_data["temperature_2m_min"] = self.temperature_2m_min
+        daily_data["apparent_temperature_max"] = self.apparent_temperature_max
+        daily_data["apparent_temperature_min"] = self.apparent_temperature_min
+        daily_data["sunrise"] = self.sunrise
+        daily_data["sunset"] = self.sunset
+        daily_data["daylight_duration"] = self.daylight_duration
+        daily_data["precipitation_hours"] = self.precipitation_hours
+        daily_data["precipitation_sum"] = self.precipitation_sum
+
+        daily_dataframe = pd.DataFrame(data=daily_data)
+        print("\nDaily data\n", daily_dataframe)
 
 
 class WeatherApp:
