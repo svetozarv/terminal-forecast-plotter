@@ -86,9 +86,10 @@ daily_daylight_duration = daily.Variables(6).ValuesAsNumpy()
 daily_precipitation_hours = daily.Variables(7).ValuesAsNumpy()
 daily_precipitation_sum = daily.Variables(8).ValuesAsNumpy()
 
+daily_time = daily.Time()
 daily_data = {
     "date": pd.date_range(
-        start=pd.to_datetime(daily.Time(), unit="s", utc=True),
+        start=pd.to_datetime(daily_time, unit="s", utc=True),
         end=pd.to_datetime(daily.TimeEnd(), unit="s", utc=True),
         freq=pd.Timedelta(seconds=daily.Interval()),
         inclusive="left",

@@ -1,3 +1,4 @@
+import datetime as dt
 import time
 from dataclasses import dataclass
 
@@ -74,6 +75,10 @@ class ApiSession:
             ],
             "timezone": "auto",
         }
+        self.last_hourly_call = None
+        self.hourly = None
+        self.last_daily_call = None
+        self.daily = None
 
     def _make_api_call(self, latitude, longitude) -> WeatherApiResponse:
         """
@@ -105,22 +110,33 @@ class ApiSession:
         Get hourly data from the past 7 days.
         Used for plotting.
         """
-        # TODO: add if statement, so there is no need to do it every time
-        response = self._make_api_call(latitude, longitude)
-        hourly = HourlyWeather(response)
+        # make an api call if the previous one was old enough
+        # there is no need to make a hourly call in intervals less than hour
+        # TODO: if i wanna in exaclty 24 hours?
+        if self.last_hourly_call.hour != dt.datetime.now().hour:
+            response = self._make_api_call(latitude, longitude)
+            self.hourly = HourlyWeather(response)
+            self.last_hourly_call = dt.datetime.now()
+
         if verbose:
-            hourly.print_info()
+            self.hourly.print_info()
 
     def get_daily_data(self, latitude=None, longitude=None, verbose=True):
         """
         Get daily data from the past 7 days.
         Used for plotting.
         """
-        # TODO: add if statement, so there is no need to do it every time
-        response = self._make_api_call(latitude, longitude)
-        daily = DailyWeather(response)
+
+        # TODO: if i wanna in exaclty a month?
+        # make an api call if the previous one was old enough
+        # there is no need to make a daily call in intervals less than a day
+        if self.last_daily_call.day != dt.datetime.now().day:
+            response = self._make_api_call(latitude, longitude)
+            self.daily = DailyWeather(response)
+            self.last_daily_call = dt.datetime.now() 
+
         if verbose:
-            daily.print_info()
+            self.daily.print_info()
 
 
 class Weather:
