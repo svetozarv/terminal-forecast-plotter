@@ -95,7 +95,7 @@ class ApiSession:
         response = responses[0]
         return response
 
-    def get_current_weather(self, latitude, longitude, verbose=True):
+    def get_current_weather(self, latitude=None, longitude=None, verbose=True):
         """
         Get (print) current weather
         """
@@ -130,7 +130,7 @@ class ApiSession:
             print(f"Current cloud_cover: {current_cloud_cover}")
             print(f"Current surface_pressure: {current_surface_pressure}")
 
-    def get_hourly_data(self, latitude, longitude):
+    def get_hourly_data(self, latitude=None, longitude=None):
         """
         Get hourly data from the past 7 days.
         Used for plotting.
@@ -159,7 +159,7 @@ class ApiSession:
         hourly_dataframe = pd.DataFrame(data=hourly_data)
         print("\nHourly data\n", hourly_dataframe)
 
-    def get_daily_data(self, latitude, longitude):
+    def get_daily_data(self, latitude=None, longitude=None):
         """
         Get daily data from the past 7 days.
         Used for plotting.
@@ -199,6 +199,31 @@ class ApiSession:
 
         daily_dataframe = pd.DataFrame(data=daily_data)
         print("\nDaily data\n", daily_dataframe)
+
+class Weather:
+    def __init__(self, open_meteo_response: WeatherApiResponse):
+        # 1. All set to none and assigned during api call
+        # 2. Pass everything into construntor
+        # 3. Pass the response obj \/
+        response = open_meteo_response.Current()
+        self.temperature_2m = response.Variables(0).Value()
+        self.relative_humidity_2m = response.Variables(1).Value()
+        self.apparent_temperature = response.Variables(2).Value()
+        self.is_day = response.Variables(3).Value()
+        self.wind_speed_10m = response.Variables(4).Value()
+        self.wind_direction_10m = response.Variables(5).Value()
+        self.precipitation = response.Variables(6).Value()
+        self.cloud_cover = response.Variables(7).Value()
+        self.surface_pressure = response.Variables(8).Value()
+
+class CurrentWeather(Weather):
+    pass
+
+class HourlyWeather(Weather):
+    pass
+
+class DailyWeather(Weather):
+    pass
 
 
 class WeatherApp:
@@ -285,4 +310,5 @@ class Alert:
 
 
 if __name__ == "__main__":
-    pass
+    api = ApiSession()
+    api.get_current_weather()
