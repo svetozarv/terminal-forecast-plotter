@@ -11,8 +11,7 @@ from openmeteo_requests.Client import WeatherApiResponse
 from retry_requests import retry
 
 # https://open-meteo.com/en/docs
-# 1. first version will be using terminal to communicate with user
-# 2. settings will be saved to a file
+# TODO: make private fields
 
 cities = {
     "London": (51.5074, -0.1278),
@@ -31,12 +30,8 @@ cities = {
 
 class ApiSession:
     def __init__(self, latitude=None, longitude=None):
-        """
-        Initialize API session
-        latitude and longitude default values are Warsaw
-        """
-        default_lat = 52.2297
-        default_lon = 21.0122
+        default_lat = cities["Warszawa"][0]
+        default_lon = cities["Warszawa"][1]
         if not isinstance(latitude, float) or not isinstance(longitude, float):
             latitude = default_lat
             longitude = default_lon
@@ -80,11 +75,11 @@ class ApiSession:
             "timezone": "auto",
         }
 
-    def make_api_call(self, latitude, longitude) -> WeatherApiResponse:
+    def _make_api_call(self, latitude, longitude) -> WeatherApiResponse:
         """
         Make a singe call (only one city/result) for provided args
         """
-        # Update self.params if args are provided else do nothing (use existing/saved values or default)
+        # Update self.params if args are provided else use existing/saved values or default
         if latitude:
             self.params["latitude"] = latitude
         if longitude:
@@ -100,7 +95,7 @@ class ApiSession:
         Get (print) current weather
         """
         # TODO: add if statement, so there is no need to do it every time
-        response = self.make_api_call(latitude, longitude)
+        response = self._make_api_call(latitude, longitude)
         current = CurrentWeather(response)
         if verbose:
             current.print_info()
@@ -111,7 +106,7 @@ class ApiSession:
         Used for plotting.
         """
         # TODO: add if statement, so there is no need to do it every time
-        response = self.make_api_call(latitude, longitude)
+        response = self._make_api_call(latitude, longitude)
         hourly = HourlyWeather(response)
         if verbose:
             hourly.print_info()
@@ -122,11 +117,11 @@ class ApiSession:
         Used for plotting.
         """
         # TODO: add if statement, so there is no need to do it every time
-        response = self.make_api_call(latitude, longitude)
+        response = self._make_api_call(latitude, longitude)
         daily = DailyWeather(response)
         if verbose:
             daily.print_info()
-        
+
 
 class Weather:
     """
@@ -142,6 +137,7 @@ class Weather:
         print(f"Coordinates: {self.latitude}°N {self.longitude}°E")
         print(f"Elevation: {self.elevation} m asl")
         print(f"Timezone difference to GMT+0: {self.timezone_diff_utc0}s")
+
 
 class CurrentWeather(Weather):
     def __init__(self, open_meteo_response):
@@ -173,6 +169,7 @@ class CurrentWeather(Weather):
         print(f"Current precipitation: {self.precipitation}")
         print(f"Current cloud_cover: {self.cloud_cover}")
         print(f"Current surface_pressure: {self.surface_pressure}")
+
 
 class HourlyWeather(Weather):
     def __init__(self, open_meteo_response):
@@ -207,6 +204,7 @@ class HourlyWeather(Weather):
 
         hourly_dataframe = pd.DataFrame(data=hourly_data)
         print("\nHourly data\n", hourly_dataframe)
+
 
 class DailyWeather(Weather):
     def __init__(self, open_meteo_response):
@@ -255,89 +253,8 @@ class DailyWeather(Weather):
         print("\nDaily data\n", daily_dataframe)
 
 
-class WeatherApp:
-    def __init__(self):
-        """
-        Setup the Open-Meteo API client with cache and retry on error
-        """
-        self._url = "https://api.open-meteo.com/v1/forecast"
-        self._cache_session = requests_cache.CachedSession(".cache", expire_after=3_600)
-        self._retry_session = retry(self._cache_session, retries=5, backoff_factor=0.2)
-        self._openmeteo = openmeteo_requests.Client(session=self._retry_session)
-
-    def get_data_from_api(
-        self,
-        latitude,
-        longitude,
-        elevation=None,
-        timezone=None,
-        start_date=None,
-        end_date=None,
-    ):
-        """
-        Make a GET request of weather data for provided city
-        """
-        # Make sure all required weather variables are listed here
-        # The order of variables in hourly or daily is important to assign them correctly below
-        params = {
-            "latitude": latitude,
-            "longitude": longitude,
-            "hourly": "temperature_2m",
-        }
-        responses_for_locations = self._openmeteo.weather_api(self._url, params=params)
-
-        # Process first location. Add a for-loop for multiple locations or weather models
-        response = responses_for_locations[0]
-        print(f"Coordinates: {response.Latitude()}°N {response.Longitude()}°E")
-        print(f"Elevation: {response.Elevation()} m asl")
-        print(f"Timezone difference to GMT+0: {response.UtcOffsetSeconds()}s")
-        return response
-
-    def create_alert(self):
-        """
-        Save alert data to file (or internal data structure but saved on app close via del?)
-        """
-        pass
-
-    def draw_plot(self):
-        pass
-
-
-class TUI:
-    def show_weather_info(self):
-        """
-        Output to the terminal
-        """
-        pass
-
-    def create_alert_message(self):
-        """
-        Based on saved alerts, output a message in console
-        """
-        pass
-
-
-@dataclass
-class UserSettings:
-    city: str
-    alerts = []
-
-    def save_alert(self):
-        pass
-
-    def save_prompt(self):
-        pass
-
-
-@dataclass
-class Alert:
-    """
-    Alerts are mapped to cities
-    """
-
-    city: str
-
-
 if __name__ == "__main__":
     api = ApiSession()
     api.get_current_weather()
+    api.get_hourly_data()
+    api.get_daily_data()
