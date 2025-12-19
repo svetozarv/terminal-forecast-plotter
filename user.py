@@ -2,17 +2,6 @@ from dataclasses import dataclass
 import matplotlib
 
 
-class WeatherApp:
-    def create_alert(self):
-        """
-        Save alert data to file (or internal data structure but saved on app close via del?)
-        """
-        pass
-
-    def draw_plot(self):
-        pass
-
-
 @dataclass
 class UserSettings:
     city: str
@@ -36,7 +25,7 @@ class TemperatureAlert(Alert):
     def __init_subclass__(cls):
         return super().__init_subclass__()
     
-    def check_for
+    # def check_for
 
 if __name__ == "__main__":
     pass
