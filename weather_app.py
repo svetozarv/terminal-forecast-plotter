@@ -1,15 +1,11 @@
 import datetime as dt
-import time
 from dataclasses import dataclass
-
-import black
-import isort
-import matplotlib
 import openmeteo_requests
 import pandas as pd
 import requests_cache
 from openmeteo_requests.Client import WeatherApiResponse
 from retry_requests import retry
+from helpers import *
 
 # https://open-meteo.com/en/docs
 # TODO: make private fields
@@ -28,9 +24,8 @@ cities = {
     "Warszawa": (52.2297, 21.0122),
 }
 
-
 class ApiSession:
-    def __init__(self, latitude=None, longitude=None):
+    def __init__(self, latitude: float = None, longitude: float = None):
         default_lat = cities["Warszawa"][0]
         default_lon = cities["Warszawa"][1]
         if not isinstance(latitude, float) or not isinstance(longitude, float):
@@ -38,12 +33,12 @@ class ApiSession:
             longitude = default_lon
 
         # Setup the Open-Meteo API client with cache and retry on error
-        self.cache_session = requests_cache.CachedSession(".cache", expire_after=3600)
-        self.retry_session = retry(self.cache_session, retries=5, backoff_factor=0.2)
-        self.openmeteo = openmeteo_requests.Client(session=self.retry_session)
+        self.__cache_session = requests_cache.CachedSession(".cache", expire_after=3600)
+        self.__retry_session = retry(self.__cache_session, retries=5, backoff_factor=0.2)
+        self.__openmeteo = openmeteo_requests.Client(session=self.__retry_session)
 
-        self.url = "https://api.open-meteo.com/v1/forecast"
-        self.params = {
+        self.__url = "https://api.open-meteo.com/v1/forecast"
+        self.__params = {
             "latitude": default_lat if not latitude else latitude,
             "longitude": default_lon if not longitude else longitude,
             "daily": [
@@ -75,27 +70,35 @@ class ApiSession:
             ],
             "timezone": "auto",
         }
-        self.last_hourly_call = None
+        self.__last_hourly_call = None
         self.hourly = None
-        self.last_daily_call = None
+        self.__last_daily_call = None
         self.daily = None
 
-    def _make_api_call(self, latitude, longitude) -> WeatherApiResponse:
+    def _make_api_call(self, latitude: float, longitude: float) -> WeatherApiResponse:
         """
         Make a singe call (only one city/result) for provided args
         """
-        # Update self.params if args are provided else use existing/saved values or default
+        # Update self.__params if args are provided else use existing/saved values or default
         if latitude:
-            self.params["latitude"] = latitude
+            self.__params["latitude"] = latitude
         if longitude:
-            self.params["longitude"] = longitude
+            self.__params["longitude"] = longitude
 
         # Process first location. Add a for-loop for multiple locations or weather models
-        responses = self.openmeteo.weather_api(self.url, params=self.params)
+        responses = self.__openmeteo.weather_api(self.__url, params=self.__params)
         response = responses[0]
         return response
+    
+    def _enough_hours_has_passed(self):
+        if self.__last_hourly_call.hour != dt.datetime.now().hour:
+            pass
 
-    def get_current_weather(self, latitude=None, longitude=None, verbose=True):
+    def _enough_days_has_passed(self):
+        if self.__last_daily_call.day != dt.datetime.now().day:
+            pass
+
+    def get_current_weather(self, latitude: float = None, longitude: float = None, verbose=False) -> "CurrentWeather":
         """
         Get (print) current weather
         """
@@ -104,39 +107,43 @@ class ApiSession:
         current = CurrentWeather(response)
         if verbose:
             current.print_info()
+        return current
                     
-    def get_hourly_data(self, latitude=None, longitude=None, verbose=True):
+    def get_hourly_data(self, latitude: float = None, longitude: float = None, verbose=False) -> "HourlyWeather":
         """
-        Get hourly data from the past 7 days.
+        Get hourly forecast of the next 7 days.
         Used for plotting.
         """
         # make an api call if the previous one was old enough
         # there is no need to make a hourly call in intervals less than hour
         # TODO: if i wanna in exaclty 24 hours?
-        if self.last_hourly_call.hour != dt.datetime.now().hour:
-            response = self._make_api_call(latitude, longitude)
-            self.hourly = HourlyWeather(response)
-            self.last_hourly_call = dt.datetime.now()
+    
+        response = self._make_api_call(latitude, longitude)
+        self.hourly = HourlyWeather(response)
+        self.__last_hourly_call = dt.datetime.now()
 
         if verbose:
             self.hourly.print_info()
 
-    def get_daily_data(self, latitude=None, longitude=None, verbose=True):
+        return self.hourly
+
+    def get_daily_data(self, latitude: float = None, longitude: float = None, verbose=False) -> "DailyWeather":
         """
-        Get daily data from the past 7 days.
+        Get daily forecast of the next 7 days.
         Used for plotting.
         """
 
         # TODO: if i wanna in exaclty a month?
         # make an api call if the previous one was old enough
         # there is no need to make a daily call in intervals less than a day
-        if self.last_daily_call.day != dt.datetime.now().day:
-            response = self._make_api_call(latitude, longitude)
-            self.daily = DailyWeather(response)
-            self.last_daily_call = dt.datetime.now() 
+        response = self._make_api_call(latitude, longitude)
+        self.daily = DailyWeather(response)
+        self.__last_daily_call = dt.datetime.now() 
 
         if verbose:
             self.daily.print_info()
+        
+        return self.daily
 
 
 class Weather:
@@ -156,7 +163,7 @@ class Weather:
 
 
 class CurrentWeather(Weather):
-    def __init__(self, open_meteo_response):
+    def __init__(self, open_meteo_response: WeatherApiResponse):
         super().__init__(open_meteo_response)
         response = open_meteo_response.Current()
         
@@ -188,23 +195,20 @@ class CurrentWeather(Weather):
 
 
 class HourlyWeather(Weather):
-    def __init__(self, open_meteo_response):
-        """
-        Process hourly data. The order of variables needs to be the same as requested.
-        """
+    def __init__(self, open_meteo_response: WeatherApiResponse):
         super().__init__(open_meteo_response)
         hourly = open_meteo_response.Hourly()
         
-        self.time = hourly.Time()
-        self.time_end = hourly.TimeEnd()
-        self.interval = hourly.Interval()
+        self.time: int = hourly.Time()
+        self.time_end: int = hourly.TimeEnd()
+        self.interval: int = hourly.Interval()
         
+        # Process hourly data. The order of variables needs to be the same as requested
         self.temperature_2m = hourly.Variables(0).ValuesAsNumpy()
         self.apparent_temperature = hourly.Variables(1).ValuesAsNumpy()
         self.relative_humidity_2m = hourly.Variables(2).ValuesAsNumpy()
         
     def print_info(self):
-        super().print_info()
         hourly_data = {
             "date": pd.date_range(
                 start=pd.to_datetime(self.time, unit="s", utc=True),
@@ -213,24 +217,25 @@ class HourlyWeather(Weather):
                 inclusive="left",
             )
         }
-
         hourly_data["temperature_2m"] = self.temperature_2m
         hourly_data["apparent_temperature"] = self.apparent_temperature
         hourly_data["relative_humidity_2m"] = self.relative_humidity_2m
-
         hourly_dataframe = pd.DataFrame(data=hourly_data)
-        print("\nHourly data\n", hourly_dataframe)
+        
+        print("\n--------- Hourly data ---------")
+        super().print_info()
+        print(hourly_dataframe)
 
 
 class DailyWeather(Weather):
-    def __init__(self, open_meteo_response):
+    def __init__(self, open_meteo_response: WeatherApiResponse):
         super().__init__(open_meteo_response)
         daily = open_meteo_response.Daily()
 
         # TODO: Move to common part
-        self.time = daily.Time()
-        self.time_end = daily.TimeEnd()
-        self.interval = daily.Interval()
+        self.time: int = daily.Time()
+        self.time_end: int = daily.TimeEnd()
+        self.interval: int = daily.Interval()
 
         # Process daily data. The order of variables needs to be the same as requested.
         self.temperature_2m_max = daily.Variables(0).ValuesAsNumpy()
@@ -244,8 +249,6 @@ class DailyWeather(Weather):
         self.precipitation_sum = daily.Variables(8).ValuesAsNumpy()
 
     def print_info(self):
-        super().print_info()
-
         daily_data = {
             "date": pd.date_range(
                 start=pd.to_datetime(self.time, unit="s", utc=True),
@@ -254,7 +257,6 @@ class DailyWeather(Weather):
                 inclusive="left",
             )
         }
-
         daily_data["temperature_2m_max"] = self.temperature_2m_max
         daily_data["temperature_2m_min"] = self.temperature_2m_min
         daily_data["apparent_temperature_max"] = self.apparent_temperature_max
@@ -264,13 +266,15 @@ class DailyWeather(Weather):
         daily_data["daylight_duration"] = self.daylight_duration
         daily_data["precipitation_hours"] = self.precipitation_hours
         daily_data["precipitation_sum"] = self.precipitation_sum
-
         daily_dataframe = pd.DataFrame(data=daily_data)
-        print("\nDaily data\n", daily_dataframe)
-
+        
+        print("\n--------- Daily data ---------")
+        super().print_info()
+        print(daily_dataframe)
 
 if __name__ == "__main__":
     api = ApiSession()
-    api.get_current_weather()
-    api.get_hourly_data()
-    api.get_daily_data()
+    api.get_current_weather(verbose=True)
+    hourly = api.get_hourly_data(verbose=True)
+    api.get_daily_data(verbose=True)
+    to_datetime(hourly.time)
