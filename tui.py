@@ -12,7 +12,12 @@ from weather_app import *
 class TUI:
     def __init__(self):
         self.api = ApiSession()
+        self.plotter = Plotter()
         self.hourly_weather = self.api.get_hourly_data()
+        self.daily_weather = self.api.get_daily_data()
+
+    def draw_plot(self):
+        self.plotter.draw(self.hourly_weather)
 
     def ask_for_weather(self):
         pass
@@ -22,25 +27,6 @@ class TUI:
         Output to the terminal
         """
         pass
-
-    def draw_plot(self):
-        plt.clear_terminal()
-        plt.title(f"Temperuture plot for {coords_to_str(self.hourly_weather.latitude, self.hourly_weather.longitude)}")
-        plt.theme("dark")
-        temperature = self.hourly_weather.temperature_2m
-        apparent_temperature = self.hourly_weather.apparent_temperature
-        time = self.hourly_weather.time
-        time_end = self.hourly_weather.time_end
-        plt.xlabel("Time")
-        ticks = time_to_ticks(time, time_end, self.hourly_weather.interval, dates=True)
-        # labels = [i for i in range()]
-        # plt.xticks(ticks=ticks, labels=labels)
-        # keys = 
-        # values = 
-        plt.plot(ticks, temperature, marker="braille", label="temperature", )
-        plt.plot(apparent_temperature, marker="braille", label="apparent_temperature")
-        plt.show()
-        print(plt.plot.__doc__)
 
     def create_alert_message(self):
         """
@@ -53,8 +39,28 @@ class Plotter:
     def __init__(self):
         pass
 
-    def draw(self):
+    def draw(self, weather_forecast: "DailyWeather", temperature, apparent_temperature) -> None:
+        plt.clear_terminal()
+        location = coords_to_city_name(weather_forecast.latitude, weather_forecast.longitude)
+        plt.title(f"Temperuture plot for {location}")
+        plt.theme("dark")
+        plt.xlabel("Time")
+        plt.ylabel("*C")
+
+        time_start = weather_forecast.time
+        time_end = weather_forecast.time_end
+
+        x_axis_indices = range(len(temperature))
+        x_labels = time_to_ticks(time_start, time_end, weather_forecast.interval)           #
+
+        plt.plot(x_axis_indices, temperature, marker="braille", label="Temperature")
+        plt.plot(x_axis_indices, apparent_temperature, marker="braille", label="Apparent temperature")
+        plt.xticks(ticks=x_axis_indices, labels=x_labels, xside=2)
+        plt.show()
+
+    def draw_subplot():
         pass
+
 
 if __name__ == "__main__":
     TUI().draw_plot()
