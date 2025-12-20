@@ -3,10 +3,11 @@ import time
 
 import numpy as np
 import plotext as plt
+from numpy import ndarray
 
-from helpers import *
+from helpers import coords_to_city_name, time_to_ticks
 from user import *
-from weather_app import *
+from weather_app import ApiSession, HourlyWeather, DailyWeather
 
 
 class TUI:
@@ -37,25 +38,50 @@ class TUI:
 
 class Plotter:
     def __init__(self):
-        pass
-
-    def draw(self, weather_forecast: "DailyWeather", temperature, apparent_temperature) -> None:
         plt.clear_terminal()
-        location = coords_to_city_name(weather_forecast.latitude, weather_forecast.longitude)
-        plt.title(f"Temperuture plot for {location}")
         plt.theme("dark")
         plt.xlabel("Time")
-        plt.ylabel("*C")
+        plt.ylabel("°C")
 
-        time_start = weather_forecast.time
-        time_end = weather_forecast.time_end
+    def draw(self, weather_forecast: DailyWeather | HourlyWeather) -> None:
+        # TODO: it looks bad. make with visitor??
+        if isinstance(weather_forecast, DailyWeather):
+            self.__draw_daily()
+        elif isinstance(weather_forecast, HourlyWeather):
+            self.__draw_hourly()
+        else:
+            raise TypeError(
+                f"Cannot draw plots for this type of data {type(weather_forecast)}"
+            )
 
+    def __draw_daily(self, weather_forecast: DailyWeather):
+        pass
+
+    def __draw_hourly(self, weather_forecast: HourlyWeather):
+        location = coords_to_city_name(
+            weather_forecast.latitude, weather_forecast.longitude
+        )
+        plt.title(f"Temperuture plot for {location}")
+
+        temperature = getattr(
+            weather_forecast, "temperature_2m", default=None
+        ) or getattr(weather_forecast, "temperature_2m_max", default=None)
+        apparent_temperature = weather_forecast.apparent_temperature
+        # TODO: retrospection?? loop through fields of weather_forecast and make plot for each of them??
+        # make func to plot 1 value, f.i. temp and them add loop here to make plots for all values
         x_axis_indices = range(len(temperature))
-        x_labels = time_to_ticks(time_start, time_end, weather_forecast.interval)           #
+        x_labels = time_to_ticks(
+            weather_forecast.time, weather_forecast.time_end, weather_forecast.interval
+        )
 
         plt.plot(x_axis_indices, temperature, marker="braille", label="Temperature")
-        plt.plot(x_axis_indices, apparent_temperature, marker="braille", label="Apparent temperature")
-        plt.xticks(ticks=x_axis_indices, labels=x_labels, xside=2)
+        plt.plot(
+            x_axis_indices,
+            apparent_temperature,
+            marker="braille",
+            label="Apparent temperature",
+        )
+        plt.xticks(ticks=x_axis_indices, labels=x_labels)
         plt.show()
 
     def draw_subplot():
