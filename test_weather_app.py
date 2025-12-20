@@ -1,6 +1,6 @@
 from weather_app import *
+from helpers import *
 
-def test_get_data_from_api():
-    app = WeatherApp()
-    print("run")
-    assert app.get_data_from_api(*cities["London"]).text == 0
+def test_coords_to_city_name():
+    assert coords_to_city_name(52.2297, 21.0122) == "Warszawa, Polska"
+    
