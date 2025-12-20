@@ -1,16 +1,22 @@
-# import pyTermTk as ptt
+import argparse
 import time
 
 import numpy as np
 import plotext as plt
+import TermTk as ttk
 from numpy import ndarray
 
 from helpers import coords_to_city_name, time_to_ticks
 from user import *
-from weather_app import ApiSession, HourlyWeather, DailyWeather
+from weather_app import ApiSession, DailyWeather, HourlyWeather
 
 
-class TUI:
+# TODO: Create interfaces for future extension??
+class TerminalUserInterface:
+    """
+    May rather be MyWeatherApp, than TUI
+    All the logic will be listed here
+    """
     def __init__(self):
         self.api = ApiSession()
         self.plotter = Plotter()
@@ -45,10 +51,11 @@ class Plotter:
 
     def draw(self, weather_forecast: DailyWeather | HourlyWeather) -> None:
         # TODO: it looks bad. make with visitor??
+        # is this a good approach?
         if isinstance(weather_forecast, DailyWeather):
-            self.__draw_daily()
+            self.__draw_daily(weather_forecast)
         elif isinstance(weather_forecast, HourlyWeather):
-            self.__draw_hourly()
+            self.__draw_hourly(weather_forecast)
         else:
             raise TypeError(
                 f"Cannot draw plots for this type of data {type(weather_forecast)}"
@@ -63,12 +70,17 @@ class Plotter:
         )
         plt.title(f"Temperuture plot for {location}")
 
-        temperature = getattr(
-            weather_forecast, "temperature_2m", default=None
-        ) or getattr(weather_forecast, "temperature_2m_max", default=None)
-        apparent_temperature = weather_forecast.apparent_temperature
-        # TODO: retrospection?? loop through fields of weather_forecast and make plot for each of them??
-        # make func to plot 1 value, f.i. temp and them add loop here to make plots for all values
+        # TODO: introspection?? loop through fields of weather_forecast and make plot for each of them??
+        hourly_temperature = getattr(weather_forecast, "temperature_2m", None)
+        daily_temperature = getattr(weather_forecast, "temperature_2m_max", None)
+        hourly_apparent_temperature = getattr(weather_forecast, "apparent_temperature", None)
+        daily_apparent_temperature = getattr(weather_forecast, "apparent_temperature_max", None)
+
+        temperature = hourly_temperature if not daily_temperature else daily_temperature
+        apparent_temperature = hourly_apparent_temperature if not daily_apparent_temperature else daily_apparent_temperature
+
+
+        # make func to plot 1 value, f.i. temp and then add loop here to make plots for all values
         x_axis_indices = range(len(temperature))
         x_labels = time_to_ticks(
             weather_forecast.time, weather_forecast.time_end, weather_forecast.interval
@@ -89,4 +101,4 @@ class Plotter:
 
 
 if __name__ == "__main__":
-    TUI().draw_plot()
+    TerminalUserInterface().draw_plot()
