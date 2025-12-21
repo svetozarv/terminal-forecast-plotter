@@ -1,13 +1,24 @@
 import datetime as dt
 import time
+from functools import singledispatch
 
 import pandas as pd
 from geopy import Location
 from geopy.exc import GeopyError
 from geopy.geocoders import Nominatim
+from numpy import ndarray
 
-from weather_app import *
+from api_session import *
 
+
+# visitor/adapter for plotter
+@singledispatch
+def make_data_payload(weather_forecast: DailyWeather):
+    pass
+
+# @make_data_payload.register()
+# def _(weather_forecast: HourlyWeather):
+#     pass
 
 def coords_to_city_name(latitude: float, longitude: float) -> str:
     """
@@ -23,9 +34,10 @@ def coords_to_city_name(latitude: float, longitude: float) -> str:
 
 
 def city_name_to_coords(city_name: str) -> tuple[float, float]:
-    raise NotImplementedError()
+    raise NotImplementedError()     # TODO
 
-def time_to_ticks(start: time, end: time, interval: int, dates=False) -> list:
+
+def datetime_to_labels(start: time, end: time, interval: int, dates=False) -> list:
     """
     `2025-12-25 18:00:00+00:00` -> `12:00 19/12`
     if dates -> `19/12`
@@ -60,4 +72,4 @@ def coords_to_str(latitude: float, longitude: float) -> str:
 if __name__ == "__main__":
     api = ApiSession()
     hourly = api.get_hourly_data()
-    time_to_ticks(hourly.time, hourly.time_end, hourly.interval)
+    datetime_to_labels(hourly.time, hourly.time_end, hourly.interval)
