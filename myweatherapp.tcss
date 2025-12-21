@@ -1,0 +1,21 @@
+Screen {
+        align: center middle;
+        /* border: solid red; */
+        /* content-align: center middle; */
+}
+
+Placeholder {
+        width: 40%;
+        /* border: solid red; */
+        height: 50%;
+}
+
+#help_label {
+        width: 40%;
+        text-align: center;
+        margin: 1;
+}
+
+#city_input {
+        width: 40%;
+}
