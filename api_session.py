@@ -81,24 +81,18 @@ class ApiSession:
         """
         Make a singe call (only one city/result) for provided args
         """
-        # Update self.__params if args are provided else use existing/saved values or default
-        if latitude:
-            self.__params["latitude"] = latitude
-        if longitude:
-            self.__params["longitude"] = longitude
+        # Update self.__params if args are provided else use random values
+        if not latitude or not longitude:
+            random_city = random.choice(list(cities.keys()))
+            latitude = cities[random_city][0]
+            longitude = cities[random_city][1]
+        self.__params["latitude"] = latitude
+        self.__params["longitude"] = longitude
 
         # Process first location. Add a for-loop for multiple locations or weather models
         responses = self.__openmeteo.weather_api(self.__url, params=self.__params)
         response = responses[0]
         return response
-
-    def _enough_hours_has_passed(self):
-        if self.__last_hourly_call.hour != dt.datetime.now().hour:
-            pass
-
-    def _enough_days_has_passed(self):
-        if self.__last_daily_call.day != dt.datetime.now().day:
-            pass
 
     def get_current_weather(self, latitude: float = None, longitude: float = None, verbose=False) -> "CurrentWeather":
         """
@@ -119,7 +113,6 @@ class ApiSession:
         # make an api call if the previous one was old enough
         # there is no need to make a hourly call in intervals less than hour
         # TODO: if i wanna in exactly 24 hours?
-
         response = self._make_api_call(latitude, longitude)
         self.hourly = HourlyWeather(response)
         self.__last_hourly_call = dt.datetime.now()
