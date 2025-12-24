@@ -70,6 +70,10 @@ class ApiSession:
             "timezone": "auto",
         }
 
+    @property
+    def params(self):
+        return self.__params
+
     def _make_api_call(self, latitude: float = None, longitude: float = None) -> WeatherApiResponse:
         """
         Make a singe call (only one city/result) for provided args
