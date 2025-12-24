@@ -2,12 +2,23 @@ from textual.app import App, ComposeResult
 from textual.containers import Center, HorizontalGroup, VerticalScroll
 from textual.screen import Screen
 from textual.widgets import Footer, Header, Input, Label, Placeholder
+from textual_plotext import PlotextPlot
 
+from tui import TerminalUserInterface
+
+
+class MainScreen(Screen):
+    def compose(self) -> ComposeResult:
+        yield Placeholder("MainScreen")
+        yield Footer()
 
 class CurrentWeatherScreen(Screen):
-    def compose(self):
+    def compose(self) -> ComposeResult:
+        help_label = """Hi! In this place you can check the weather in \
+                any place in the world by typing it in \
+                the field below."""
         with Center():
-            yield Label("Hi! In this place you can check the weather in any place in the world by typing it in the field below.", id="help_label")
+            yield Label(help_label, id="help_label")
         with Center():
             yield Input(placeholder="Enter location...", id="city_input")
         # with Center():
@@ -15,17 +26,34 @@ class CurrentWeatherScreen(Screen):
         yield Footer()
 
 class PlotScreen(Screen):
-    def compose(self):
-        yield Placeholder("PlotScreen")
+    def draw(self):
+        plt = self.query_one(PlotextPlot).plt
+        TerminalUserInterface().draw_plot(plt)
+
+    def on_mount(self) -> None:
+        self.draw()
+
+    def on_enter(self):
+        self.draw()
+
+    def on_focus(self):
+        self.draw()
+
+    def on_screen_resume(self):
+        self.draw()
+
+    def compose(self) -> ComposeResult:
+        # yield Placeholder("PlotScreen")
+        yield PlotextPlot()
         yield Footer()
 
 class FavouritesScreen(Screen):
-    def compose(self):
+    def compose(self) -> ComposeResult:
         yield Placeholder("Fav Screen")
         yield Footer()
 
 class AlertsScreen(Screen):
-    def compose(self):
+    def compose(self) -> ComposeResult:
         yield Placeholder("Alerts Screen")
         yield Footer()
 
@@ -33,13 +61,15 @@ class MyWeatherApp(App):
     CSS_PATH = "myweatherapp.tcss"
     BINDINGS = [
         ("d", "toggle_dark", "Toggle dark mode"),
-        ("w", "push_screen('current_weather')", "Check weather"),
-        ("f", "push_screen('favourites')", "Favourites"),
-        ("a", "push_screen('alerts')", "Alerts"),
+        ("m", "switch_screen('main')", "Return to main"),
+        ("w", "switch_screen('current_weather')", "Check weather"),
+        ("f", "switch_screen('favourites')", "Favourites"),
+        ("a", "switch_screen('alerts')", "Alerts"),
     ]
     SCREENS = {
+        "main": MainScreen,
         "current_weather": CurrentWeatherScreen,
-        "plot" : PlotScreen,
+        "plot": PlotScreen,
         "favourites": FavouritesScreen,
         "alerts": AlertsScreen,
     }
@@ -50,11 +80,15 @@ class MyWeatherApp(App):
         yield Footer()
 
     def on_mount(self) -> None:
-        # self.switch_screen("current_weather")
+        # self.install_screen("main")
+        # self.install_screen("favourites")
+        # self.install_screen("alerts")
+        # self.install_screen("current_weather")
+        self.push_screen("main")
         self.theme = "nord"
 
     def on_input_submitted(self):
-        self.push_screen("plot")
+        self.switch_screen("plot")
 
 if __name__ == "__main__":
     app = MyWeatherApp()
