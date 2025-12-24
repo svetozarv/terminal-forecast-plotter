@@ -1,6 +1,5 @@
 import datetime as dt
 import random
-from dataclasses import dataclass
 
 import openmeteo_requests
 import pandas as pd
@@ -9,8 +8,6 @@ from openmeteo_requests.Client import WeatherApiResponse
 from retry_requests import retry
 
 # https://open-meteo.com/en/docs
-# TODO: make private fields
-
 cities = {
     "London": (51.5074, -0.1278),
     "Paris": (48.8566, 2.3522),
@@ -72,10 +69,6 @@ class ApiSession:
             ],
             "timezone": "auto",
         }
-        self.__last_hourly_call = None
-        self.hourly = None
-        self.__last_daily_call = None
-        self.daily = None
 
     def _make_api_call(self, latitude: float = None, longitude: float = None) -> WeatherApiResponse:
         """
@@ -98,7 +91,6 @@ class ApiSession:
         """
         Get (print) current weather
         """
-        # TODO: add if statement, so there is no need to do it every time
         response = self._make_api_call(latitude, longitude)
         current = CurrentWeather(response)
         if verbose:
@@ -110,35 +102,22 @@ class ApiSession:
         Get hourly forecast of the next 7 days.
         Used for plotting.
         """
-        # make an api call if the previous one was old enough
-        # there is no need to make a hourly call in intervals less than hour
-        # TODO: if i wanna in exactly 24 hours?
         response = self._make_api_call(latitude, longitude)
-        self.hourly = HourlyWeather(response)
-        self.__last_hourly_call = dt.datetime.now()
-
+        hourly = HourlyWeather(response)
         if verbose:
-            self.hourly.print_info()
-
-        return self.hourly
+            hourly.print_info()
+        return hourly
 
     def get_daily_data(self, latitude: float = None, longitude: float = None, verbose=False) -> "DailyWeather":
         """
         Get daily forecast of the next 7 days.
         Used for plotting.
         """
-
-        # TODO: if i wanna in exactly a month?
-        # make an api call if the previous one was old enough
-        # there is no need to make a daily call in intervals less than a day
         response = self._make_api_call(latitude, longitude)
-        self.daily = DailyWeather(response)
-        self.__last_daily_call = dt.datetime.now()
-
+        daily = DailyWeather(response)
         if verbose:
-            self.daily.print_info()
-
-        return self.daily
+            daily.print_info()
+        return daily
 
 
 class Weather:
@@ -146,6 +125,7 @@ class Weather:
     Represents a json object received during API call
     """
     def __init__(self, open_meteo_response: WeatherApiResponse):
+        # TODO: make the fields unchangeable
         self.latitude = open_meteo_response.Latitude()
         self.longitude = open_meteo_response.Longitude()
         self.elevation = open_meteo_response.Elevation()
@@ -163,6 +143,7 @@ class CurrentWeather(Weather):
         response = open_meteo_response.Current()
 
         # Process current data. The order of variables needs to be the same as requested.
+        # TODO: make the fields unchangeable
         self.time = response.Time()
         self.temperature_2m = response.Variables(0).Value()
         self.relative_humidity_2m = response.Variables(1).Value()
@@ -194,6 +175,7 @@ class HourlyWeather(Weather):
         super().__init__(open_meteo_response)
         hourly = open_meteo_response.Hourly()
 
+        # TODO: make the fields unchangeable
         self.time: int = hourly.Time()
         self.time_end: int = hourly.TimeEnd()
         self.interval: int = hourly.Interval()
@@ -228,6 +210,7 @@ class DailyWeather(Weather):
         daily = open_meteo_response.Daily()
 
         # TODO: Move to common part
+        # TODO: make the fields unchangeable
         self.time: int = daily.Time()
         self.time_end: int = daily.TimeEnd()
         self.interval: int = daily.Interval()
@@ -270,7 +253,6 @@ class DailyWeather(Weather):
 if __name__ == "__main__":
     api = ApiSession()
     api.get_current_weather(verbose=True)
-    hourly = api.get_hourly_data(verbose=True)
     api.get_daily_data(verbose=True)
+    hourly = api.get_hourly_data(verbose=True)
     a = hourly.__dir__()
-    pass
