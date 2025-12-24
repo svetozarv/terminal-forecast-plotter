@@ -1,5 +1,9 @@
+import asyncio
+
+from textual import on
 from textual.app import App, ComposeResult
 from textual.containers import Center, HorizontalGroup, VerticalScroll
+from textual.events import ScreenResume, ScreenSuspend
 from textual.screen import Screen
 from textual.widgets import Footer, Header, Input, Label, Placeholder
 from textual_plotext import PlotextPlot
@@ -25,26 +29,28 @@ class CurrentWeatherScreen(Screen):
             # yield Placeholder("Curr Weather Screen")
         yield Footer()
 
-class PlotScreen(Screen):
-    BINDINGS = [
-        ("escape", "app.pop_screen", "Return"),
-    ]
+    def on_input_submitted(self):
+        app.switch_screen("plot")
 
+class PlotScreen(Screen):
+    BINDINGS = [("m", "switch_screen('main')", "Return to main")]
+
+    @on(ScreenResume)
     def draw(self):
         plt = self.query_one(PlotextPlot).plt
         MyWeatherApp().draw_plot(plt)
-
-    def on_mount(self) -> None:
-        self.draw()
+        self.query_one(PlotextPlot).refresh()
 
     def compose(self) -> ComposeResult:
+        self.refresh_bindings()
         # yield Placeholder("PlotScreen")
         yield PlotextPlot()
         yield Footer()
 
+
 class FavouritesScreen(Screen):
     def compose(self) -> ComposeResult:
-        yield Placeholder("Fav Screen")
+        yield Placeholder(f"{app.screen}")
         yield Footer()
 
 class AlertsScreen(Screen):
@@ -53,13 +59,13 @@ class AlertsScreen(Screen):
         yield Footer()
 
 class TerminalUserInterface(App):
-    CSS_PATH = "myweatherapp.tcss"
+    CSS_PATH = "terminal_user_interface.tcss"
     BINDINGS = [
+        ("w", "switch_to_screen('current_weather')", "Check weather"),
+        ("f", "switch_to_screen('favourites')", "Favourites"),
+        ("a", "switch_to_screen('alerts')", "Alerts"),
+        ("m", "switch_to_screen('main')", "Return to main"),
         ("d", "toggle_dark", "Toggle dark mode"),
-        ("m", "switch_screen('main')", "Return to main"),
-        ("w", "switch_screen('current_weather')", "Check weather"),
-        ("f", "switch_screen('favourites')", "Favourites"),
-        ("a", "switch_screen('alerts')", "Alerts"),
     ]
     SCREENS = {
         "main": MainScreen,
@@ -80,10 +86,25 @@ class TerminalUserInterface(App):
         # self.install_screen("alerts")
         # self.install_screen("current_weather")
         self.push_screen("main")
-        self.theme = "nord"
+        # self.theme = "nord"
 
-    def on_input_submitted(self):
-        self.push_screen("plot")
+    def action_switch_to_screen(self, name):
+        self.switch_screen(name)
+        self.refresh_bindings()
+
+    def check_action(self, action, parameters):
+        if isinstance(self.screen, PlotScreen):
+            if action == "switch_to_screen" and parameters[0] == "main":
+                return True
+            if action == "switch_to_screen" and parameters[0] == "current_weather":
+                return False
+            if action == "switch_to_screen" and parameters[0] == "alerts":
+                return False
+            if action == "switch_to_screen" and parameters[0] == "favourites":
+                return False
+            if action == "toggle_dark":
+                return False
+        return True
 
 if __name__ == "__main__":
     app = TerminalUserInterface()
