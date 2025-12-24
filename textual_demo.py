@@ -26,20 +26,15 @@ class CurrentWeatherScreen(Screen):
         yield Footer()
 
 class PlotScreen(Screen):
+    BINDINGS = [
+        ("escape", "app.pop_screen", "Return"),
+    ]
+
     def draw(self):
         plt = self.query_one(PlotextPlot).plt
         TerminalUserInterface().draw_plot(plt)
 
     def on_mount(self) -> None:
-        self.draw()
-
-    def on_enter(self):
-        self.draw()
-
-    def on_focus(self):
-        self.draw()
-
-    def on_screen_resume(self):
         self.draw()
 
     def compose(self) -> ComposeResult:
@@ -57,7 +52,7 @@ class AlertsScreen(Screen):
         yield Placeholder("Alerts Screen")
         yield Footer()
 
-class MyWeatherApp(App):
+class TerminalUserInterface(App):
     CSS_PATH = "myweatherapp.tcss"
     BINDINGS = [
         ("d", "toggle_dark", "Toggle dark mode"),
@@ -88,8 +83,8 @@ class MyWeatherApp(App):
         self.theme = "nord"
 
     def on_input_submitted(self):
-        self.switch_screen("plot")
+        self.push_screen("plot")
 
 if __name__ == "__main__":
-    app = MyWeatherApp()
+    app = TerminalUserInterface()
     app.run()
