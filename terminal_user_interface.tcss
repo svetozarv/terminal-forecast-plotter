@@ -1,6 +1,6 @@
 Screen {
         align: center middle;
-        /* border: solid red; */
+        # border: solid red;
         /* content-align: center middle; */
 }
 

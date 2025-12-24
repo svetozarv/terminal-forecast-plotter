@@ -4,7 +4,7 @@ from textual.screen import Screen
 from textual.widgets import Footer, Header, Input, Label, Placeholder
 from textual_plotext import PlotextPlot
 
-from tui import TerminalUserInterface
+from my_weather_app import MyWeatherApp
 
 
 class MainScreen(Screen):
@@ -32,7 +32,7 @@ class PlotScreen(Screen):
 
     def draw(self):
         plt = self.query_one(PlotextPlot).plt
-        TerminalUserInterface().draw_plot(plt)
+        MyWeatherApp().draw_plot(plt)
 
     def on_mount(self) -> None:
         self.draw()
