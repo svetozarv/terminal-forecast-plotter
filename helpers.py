@@ -10,16 +10,6 @@ from numpy import ndarray
 
 from api_session import *
 
-
-# visitor/adapter for plotter
-@singledispatch
-def make_data_payload(weather_forecast: DailyWeather):
-    pass
-
-# @make_data_payload.register()
-# def _(weather_forecast: HourlyWeather):
-#     pass
-
 def coords_to_city_name(latitude: float, longitude: float) -> str:
     """
     `52.2297, 21.0122` -> `Warszawa, Polska`
