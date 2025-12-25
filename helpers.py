@@ -46,15 +46,6 @@ def datetime_to_labels(start: time, end: time, interval: int, dates=False) -> li
     return data
 
 
-def to_datetime(time: int) -> time:
-    """
-    Ex. 1766139300 -> 23:00:00
-    """
-    dt_time = pd.to_datetime(time, unit="s", utc=True)
-    # dt_time.strftime
-    return dt_time.time()
-
-
 def coords_to_str(latitude: float, longitude: float) -> str:
     return f"{latitude}°N {longitude}°E"
 
