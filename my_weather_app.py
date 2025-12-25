@@ -1,14 +1,13 @@
 import argparse
 import time
+from functools import singledispatch
 
 import numpy as np
 import plotext
 from numpy import ndarray
-from functools import singledispatch
-
-from api_session import ApiSession, DailyWeather, HourlyWeather
-from helpers import coords_to_city_name, datetime_to_labels
-
+import geocoder
+from api_session import ApiSession, DailyWeather, HourlyWeather, Weather
+import helpers
 
 # TODO: Create interfaces for future extension??
 class MyWeatherApp:
@@ -31,16 +30,23 @@ class MyWeatherApp:
     def daily_forecast(self):
         return self.api.get_daily_data()
 
-    def draw_plot(self, plt: plotext):
-        weather_forecast = self.hourly_forecast
-        location = coords_to_city_name(weather_forecast.latitude, weather_forecast.longitude)
+    def draw_daily_plot(self, plt: plotext):
+        weather_forecast = self.daily_forecast
+        self.draw_plot(plt, weather_forecast)
 
-        # TODO: introspection?? loop through fields of weather_forecast and make plot for each of them??
-        series = make_data_payload(weather_forecast)
-        labels = ["temperature", "apparent_temperature"]
-        
+    def draw_hourly_plot(self, plt: plotext):
+        weather_forecast = self.hourly_forecast
+        self.draw_plot(plt, weather_forecast)
+
+    def draw_plot(self, plt: plotext, weather_forecast: DailyWeather | HourlyWeather):
+        location = geocoder.coords_to_city_name(weather_forecast.latitude, weather_forecast.longitude)
+        coords = helpers.coords_to_str(weather_forecast.latitude, weather_forecast.longitude)
+
+        # loop through fields of weather_forecast and make plot for each of them??
+        series, labels = make_data_payload(weather_forecast, self.api.params)
+
         self.plotter = Plotter(plt)
-        self.plotter.draw(weather_forecast, series, labels, location)
+        self.plotter.draw(weather_forecast, series, labels, title=location or coords)
 
     def create_alert_message(self):
         """
@@ -68,7 +74,7 @@ class Plotter:
         plt.clear_figure()
         plt.title(title)
         for single_series, label in zip(seq_of_series, labels):
-            x_labels = datetime_to_labels(weather_forecast.time, weather_forecast.time_end, weather_forecast.interval)
+            x_labels = helpers.datetime_to_labels(weather_forecast.time, weather_forecast.time_end, weather_forecast.interval)
             x_axis_indices = range(len(single_series))
             plt.plot(x_axis_indices, single_series, marker="braille", label=label)
             plt.xticks(ticks=x_axis_indices, labels=x_labels)
@@ -77,30 +83,25 @@ class Plotter:
 
 # adapter for plotter
 @singledispatch
-def make_data_payload(weather_forecast: DailyWeather) -> list[ndarray]:
-    series = []
-    series.append(getattr(weather_forecast, "temperature_2m_max", None))
-    series.append(getattr(weather_forecast, "temperature_2m_min", None))
-    series.append(getattr(weather_forecast, "apparent_temperature_max", None))
-    series.append(getattr(weather_forecast, "apparent_temperature_min", None))
-    series.append(getattr(weather_forecast, "sunrise", None))
-    series.append(getattr(weather_forecast, "sunset", None))
-    series.append(getattr(weather_forecast, "daylight_duration", None))
-    series.append(getattr(weather_forecast, "precipitation_hours", None))
-    series.append(getattr(weather_forecast, "precipitation_sum", None))
-    # TODO: labels = [params["daily"]]
-    return series
+def make_data_payload(weather_forecast: DailyWeather, params: list[str]) -> list[ndarray]:
+    labels = params["daily"]
+    series = obj_properties_from_strings(weather_forecast, params["daily"])
+    return series, labels
 
 @make_data_payload.register(HourlyWeather)
-def _(weather_forecast: HourlyWeather) -> list[ndarray]:
-    series = []
-    # for label in labels:
-    #    series.append(getattr(weather_forecast, label, None))
-    series.append(getattr(weather_forecast, "temperature_2m", None))
-    series.append(getattr(weather_forecast, "apparent_temperature", None))
-    series.append(getattr(weather_forecast, "relative_humidity_2m", None))
-    # TODO: labels = [params["horly"]]
-    return series
+def _(weather_forecast: HourlyWeather, params: list[str]) -> list[ndarray]:
+    labels = params["horly"]
+    series = obj_properties_from_strings(weather_forecast, params["hourly"])
+    return series, labels
+
+def obj_properties_from_strings(obj, ls: list[str]) -> list[any]:
+    """
+    `["height", "width"]` -> `[obj.height, obj.width]`
+    """
+    properties = []
+    for property_str in ls:
+        properties.append(getattr(obj, property_str, None))
+    return properties
 
 if __name__ == "__main__":
-    MyWeatherApp().draw_plot()
+    MyWeatherApp().draw_plot(plotext)
