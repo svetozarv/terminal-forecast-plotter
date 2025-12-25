@@ -4,6 +4,7 @@ import time
 import numpy as np
 import plotext
 from numpy import ndarray
+from functools import singledispatch
 
 from api_session import ApiSession, DailyWeather, HourlyWeather
 from helpers import coords_to_city_name, datetime_to_labels
@@ -31,22 +32,14 @@ class MyWeatherApp:
         return self.api.get_daily_data()
 
     def draw_plot(self, plt: plotext):
-        self.plotter = Plotter(plt)
         weather_forecast = self.hourly_forecast
         location = coords_to_city_name(weather_forecast.latitude, weather_forecast.longitude)
 
-        # TODO: it looks bad. make with visitor??  is this a good approach?
         # TODO: introspection?? loop through fields of weather_forecast and make plot for each of them??
-        hourly_temperature = getattr(weather_forecast, "temperature_2m", None)
-        daily_temperature = getattr(weather_forecast, "temperature_2m_max", None)
-        hourly_apparent_temperature = getattr(weather_forecast, "apparent_temperature", None)
-        daily_apparent_temperature = getattr(weather_forecast, "apparent_temperature_max", None)
-        temperature = hourly_temperature if not daily_temperature else daily_temperature
-        apparent_temperature = hourly_apparent_temperature if not daily_apparent_temperature \
-            else daily_apparent_temperature
-
-        series = [temperature, apparent_temperature]
+        series = make_data_payload(weather_forecast)
         labels = ["temperature", "apparent_temperature"]
+        
+        self.plotter = Plotter(plt)
         self.plotter.draw(weather_forecast, series, labels, location)
 
     def create_alert_message(self):
@@ -60,26 +53,54 @@ class Plotter:
         # plt.clear_terminal()
         # plt.theme("dark")
         self.plt = plt
+        self.y_label = "°C"
         plt.xlabel("Time")
-        plt.ylabel("°C")
+        plt.ylabel(self.y_label)
 
-    def draw(self, weather_forecast: DailyWeather, series: list[ndarray], labels: list[str], location: str):
+    def draw(self, weather_forecast: DailyWeather, seq_of_series: list[ndarray], labels: list[str], title: str):
         """
-        Draw len(series) plots on sigle canvas (for instance: both temp and humidity on single plot).
-
+        Draw few plots on a sigle canvas (for instance: both temp and humidity on a single plot).
         len(series) and len(labels) must be equal.
+        seq_of_series is a list of ndarrays for the values to draw
         """
         plt = self.plt
-        plt.title(location)
         plt.clear_data()
         plt.clear_figure()
-        for single_series, label in zip(series, labels):
+        plt.title(title)
+        for single_series, label in zip(seq_of_series, labels):
             x_labels = datetime_to_labels(weather_forecast.time, weather_forecast.time_end, weather_forecast.interval)
             x_axis_indices = range(len(single_series))
             plt.plot(x_axis_indices, single_series, marker="braille", label=label)
             plt.xticks(ticks=x_axis_indices, labels=x_labels)
         plt.show()
 
+
+# adapter for plotter
+@singledispatch
+def make_data_payload(weather_forecast: DailyWeather) -> list[ndarray]:
+    series = []
+    series.append(getattr(weather_forecast, "temperature_2m_max", None))
+    series.append(getattr(weather_forecast, "temperature_2m_min", None))
+    series.append(getattr(weather_forecast, "apparent_temperature_max", None))
+    series.append(getattr(weather_forecast, "apparent_temperature_min", None))
+    series.append(getattr(weather_forecast, "sunrise", None))
+    series.append(getattr(weather_forecast, "sunset", None))
+    series.append(getattr(weather_forecast, "daylight_duration", None))
+    series.append(getattr(weather_forecast, "precipitation_hours", None))
+    series.append(getattr(weather_forecast, "precipitation_sum", None))
+    # TODO: labels = [params["daily"]]
+    return series
+
+@make_data_payload.register(HourlyWeather)
+def _(weather_forecast: HourlyWeather) -> list[ndarray]:
+    series = []
+    # for label in labels:
+    #    series.append(getattr(weather_forecast, label, None))
+    series.append(getattr(weather_forecast, "temperature_2m", None))
+    series.append(getattr(weather_forecast, "apparent_temperature", None))
+    series.append(getattr(weather_forecast, "relative_humidity_2m", None))
+    # TODO: labels = [params["horly"]]
+    return series
 
 if __name__ == "__main__":
     MyWeatherApp().draw_plot()
