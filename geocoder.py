@@ -18,13 +18,15 @@ def coords_to_city_name(latitude: float, longitude: float) -> str:
     return f"{address['city']}, {address['country']}"
 
 
-def city_name_to_coords(city_name: str, country_name: str = None) -> tuple[float, float]:
-    # raise NotImplementedError()     # TODO
-    geolocator = Nominatim(user_agent="my_geopy_app123")
-    coord = geolocator.geocode(f"{city_name}, {country_name}")
-    return coord.raw
+def city_name_to_coords(city_name: str, country_name: str = None) -> tuple[float, float] | None:
+    try:
+        geolocator = Nominatim(user_agent="my_geopy_app")
+        location = geolocator.geocode(f"{city_name}, {country_name if country_name else ''}")
+    except GeopyError as e:
+        return None
+    return (float(location.raw["lat"]), float(location.raw["lon"]))
 
 
 if __name__ == "__main__":
     a = city_name_to_coords("Warszawa", "Polska")
-    pass
+    print(a)
