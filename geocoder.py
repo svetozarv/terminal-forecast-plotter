@@ -1,0 +1,30 @@
+from geopy import Location
+from geopy.exc import GeopyError
+from geopy.geocoders import Nominatim
+
+from helpers import coords_to_str, datetime_to_labels
+
+
+def coords_to_city_name(latitude: float, longitude: float) -> str:
+    """
+    `52.2297, 21.0122` -> `Warszawa, Polska`
+    """
+    try:
+        geolocator = Nominatim(user_agent="my_geopy_app")
+        location = geolocator.reverse(str(latitude) + "," + str(longitude))
+        address: dict = location.raw['address']
+    except GeopyError as e:     # any GeoCoder exeption
+        return coords_to_str(latitude, longitude)
+    return f"{address['city']}, {address['country']}"
+
+
+def city_name_to_coords(city_name: str, country_name: str = None) -> tuple[float, float]:
+    # raise NotImplementedError()     # TODO
+    geolocator = Nominatim(user_agent="my_geopy_app123")
+    coord = geolocator.geocode(f"{city_name}, {country_name}")
+    return coord.raw
+
+
+if __name__ == "__main__":
+    a = city_name_to_coords("Warszawa", "Polska")
+    pass

@@ -1,35 +1,18 @@
+# Generic functions used in project
 import datetime as dt
 import time
 from functools import singledispatch
 
 import pandas as pd
-from geopy import Location
-from geopy.exc import GeopyError
-from geopy.geocoders import Nominatim
 from numpy import ndarray
 
 from api_session import *
 
-def coords_to_city_name(latitude: float, longitude: float) -> str:
-    """
-    `52.2297, 21.0122` -> `Warszawa, Polska`
-    """
-    try:
-        geolocator = Nominatim(user_agent="my_geopy_app")
-        location = geolocator.reverse(str(latitude) + "," + str(longitude))
-        address: dict = location.raw['address']
-    except GeopyError as e:     # any GeoCoder exeption
-        return coords_to_str(latitude, longitude)
-    return f"{address['city']}, {address['country']}"
-
-
-def city_name_to_coords(city_name: str) -> tuple[float, float]:
-    raise NotImplementedError()     # TODO
-
 
 def datetime_to_labels(start: time, end: time, interval: int, dates=False) -> list:
     """
-    `2025-12-25 18:00:00+00:00` -> `12:00 19/12`
+    Removes year, timezone and milliseconds info from datetime obj.
+    `2025-12-19 12:00:00+00:00` -> `12:00 19/12`
     if dates -> `19/12`
     """
     data = pd.date_range(
