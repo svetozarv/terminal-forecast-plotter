@@ -25,11 +25,11 @@ cities = {
 class ApiSession:
     def __init__(self, latitude: float = None, longitude: float = None):
         random_city = random.choice(list(cities.keys()))
-        default_lat = cities[random_city][0]
-        default_lon = cities[random_city][1]
+        self.__default_lat = cities[random_city][0]
+        self.__default_lon = cities[random_city][1]
         if not isinstance(latitude, float) or not isinstance(longitude, float):
-            latitude = default_lat
-            longitude = default_lon
+            latitude = self.__default_lat
+            longitude = self.__default_lon
 
         # Setup the Open-Meteo API client with cache and retry on error
         self.__cache_session = requests_cache.CachedSession(".cache", expire_after=3600)
@@ -81,8 +81,10 @@ class ApiSession:
         # Update self.__params if args are provided else use random values
         if not latitude or not longitude:
             random_city = random.choice(list(cities.keys()))
-            latitude = cities[random_city][0]
-            longitude = cities[random_city][1]
+            # latitude = cities[random_city][0]
+            latitude = self.__default_lat
+            # longitude = cities[random_city][1]
+            longitude = self.__default_lon
         self.__params["latitude"] = latitude
         self.__params["longitude"] = longitude
 
