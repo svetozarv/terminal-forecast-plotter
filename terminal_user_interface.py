@@ -18,9 +18,9 @@ class MainScreen(Screen):
 
 class CurrentWeatherScreen(Screen):
     def compose(self) -> ComposeResult:
-        help_label = """Hi! In this place you can check the weather in \
-                any place in the world by typing it in \
-                the field below."""
+        help_label = "Hi! In this place you can check the weather in" + \
+                " any place in the world by typing it in" + \
+                " the field below."
         with Center():
             yield Label(help_label, id="help_label")
         with Center():
@@ -33,18 +33,35 @@ class CurrentWeatherScreen(Screen):
         app.switch_screen("plot")
 
 class PlotScreen(Screen):
-    BINDINGS = [("m", "switch_screen('main')", "Return to main")]
+    my_weather_app = MyWeatherApp()
+    BINDINGS = [
+        ("j", "draw_daily", "See daily forecast"),
+        ("h", "draw_hourly", "See hourly forecast")
+    ]
 
-    @on(ScreenResume)
-    def draw(self):
+    def action_draw_daily(self):
         plt = self.query_one(PlotextPlot).plt
-        MyWeatherApp().draw_plot(plt)
+        self.my_weather_app.draw_daily_plot(plt)
         self.query_one(PlotextPlot).refresh()
 
+    def draw_hourly(self):
+        plt = self.query_one(PlotextPlot).plt
+        self.my_weather_app.draw_hourly_plot(plt)
+        self.query_one(PlotextPlot).refresh()
+
+    def action_draw_hourly(self):
+        self.draw_hourly()
+
+    @on(ScreenResume)
+    def draw_hourly_on_resume(self):
+        self.draw_hourly()
+
+    def on_mount(self):
+        self.draw_hourly()
+
     def compose(self) -> ComposeResult:
-        self.refresh_bindings()
         # yield Placeholder("PlotScreen")
-        yield PlotextPlot()
+        yield PlotextPlot(id="plotext-plot")
         yield Footer()
 
 
@@ -93,6 +110,12 @@ class TerminalUserInterface(App):
         self.refresh_bindings()
 
     def check_action(self, action, parameters):
+        if isinstance(self.screen, MainScreen):
+            if action == "switch_to_screen" and parameters[0] == "main":
+                return False
+        if not isinstance(self.screen, PlotScreen):
+            if action == "draw_daily":
+                return False
         if isinstance(self.screen, PlotScreen):
             if action == "switch_to_screen" and parameters[0] == "main":
                 return True

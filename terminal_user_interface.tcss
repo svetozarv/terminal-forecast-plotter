@@ -10,6 +10,10 @@ Placeholder {
         height: 50%;
 }
 
+#plotext-plot {
+        margin: 1;
+}
+
 #help_label {
         width: 40%;
         text-align: center;
