@@ -19,25 +19,24 @@ class MyWeatherApp:
     def __init__(self):
         self.api = ApiSession()
         # self.plotter = Plotter(plt)
+        self.current_city = None
+        self.geocoder = None
 
-    @property
-    def current_forecast(self):
+    def get_current_forecast(self):
         return self.api.get_current_weather()
 
-    @property
-    def hourly_forecast(self):
+    def get_hourly_forecast(self):
         return self.api.get_hourly_data()
 
-    @property
-    def daily_forecast(self):
+    def get_daily_forecast(self):
         return self.api.get_daily_data()
 
     def draw_daily_plot(self, plt: plotext):
-        weather_forecast = self.daily_forecast
+        weather_forecast = self.get_daily_forecast()
         self.__draw_plot(plt, weather_forecast)
 
     def draw_hourly_plot(self, plt: plotext):
-        weather_forecast = self.hourly_forecast
+        weather_forecast = self.get_hourly_forecast()
         self.__draw_plot(plt, weather_forecast)
 
     def __draw_plot(self, plt: plotext, weather_forecast: DailyWeather | HourlyWeather):
@@ -55,6 +54,7 @@ class MyWeatherApp:
         Based on saved alerts, output a message in console
         """
         pass
+
 
 class Plotter:
     def __init__(self, plt: plotext):
@@ -88,18 +88,22 @@ class Plotter:
 def make_data_payload(weather_forecast: DailyWeather, params: list[str]) -> list[ndarray]:
     # edit the labels list to select the displayed data among requested
     # labels = params["daily"]
-    labels = ["temperature_2m_max",
-            "temperature_2m_min",
-            "apparent_temperature_max",
-            "apparent_temperature_min"]
+    labels = [
+        "temperature_2m_max",
+        "temperature_2m_min",
+        "apparent_temperature_max",
+        "apparent_temperature_min"
+    ]
     series = obj_properties_from_strings(weather_forecast, params["daily"])
     return series, labels
 
 @make_data_payload.register(HourlyWeather)
 def _(weather_forecast: HourlyWeather, params: list[str]) -> list[ndarray]:
     # labels = params["hourly"]
-    labels = ["temperature_2m",
-                "apparent_temperature"]
+    labels = [
+        "temperature_2m",
+        "apparent_temperature"
+    ]
     series = obj_properties_from_strings(weather_forecast, params["hourly"])
     return series, labels
 
@@ -111,6 +115,7 @@ def obj_properties_from_strings(obj, ls: list[str]) -> list[any]:
     for property_str in ls:
         properties.append(getattr(obj, property_str, None))
     return properties
+
 
 if __name__ == "__main__":
     MyWeatherApp().draw_plot(plotext)
