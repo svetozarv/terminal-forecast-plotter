@@ -1,31 +1,54 @@
 from dataclasses import dataclass
-import matplotlib
+from db_handler import Favourites, Alerts, DATABASE_FILENAME
+from peewee import *
 
+class DbHandler:
+    db = SqliteDatabase(DATABASE_FILENAME)
 
-@dataclass
-class UserSettings:
-    city: str
-    alerts = []
+    def __init__(self):
+        self.db.connect()
 
-    def save_alert(self):
-        pass
+    def save_city_to_favourties(self, city_name: str) -> bool:
+        if city_name in self.get_favourites():
+            return False
+        city = Favourites(city_name=city_name)
+        status = city.save()
+        return True
 
-    def save_prompt(self):
-        pass
+    def create_temperature_alert(self, city_name: str, min_temp: float, max_temp: float = None):
+        if self.get_alert(city_name):
+            return False
+        alert = Alerts(city_name=city_name, min_temp_alert=min_temp, max_temp_alert=max_temp)
+        status = alert.save()
+        return True
 
+    def get_alert(self, city_name: str) -> tuple[float, float]:
+        alert = Alerts.select(Alerts.city_name == city_name)
+        return alert
+
+    def get_favourites(self) -> list[str]:
+        cities = list(map(lambda favourite: favourite.city_name, Favourites.select()))
+        return cities
+
+    def erase(self):
+        for query in Alerts.select():
+            query.delete_instance()
+        for query in Favourites.select():
+            query.delete_instance()
+
+    def __del__(self):
+        self.db.close()
 
 @dataclass
 class Alert:
     city: str
     latitude: float
     longitude: float
-    coord_offset: float   # offset for which the alert is triggered
 
 class TemperatureAlert(Alert):
     def __init_subclass__(cls):
         return super().__init_subclass__()
-    
-    # def check_for
+
 
 if __name__ == "__main__":
     pass
