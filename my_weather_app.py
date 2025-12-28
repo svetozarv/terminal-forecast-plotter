@@ -5,9 +5,11 @@ from functools import singledispatch
 import numpy as np
 import plotext
 from numpy import ndarray
+
 import geocoder
-from api_session import ApiSession, DailyWeather, HourlyWeather, Weather
 import helpers
+from api_session import ApiSession, DailyWeather, HourlyWeather, Weather
+
 
 # TODO: Create interfaces for future extension??
 class MyWeatherApp:
@@ -32,13 +34,13 @@ class MyWeatherApp:
 
     def draw_daily_plot(self, plt: plotext):
         weather_forecast = self.daily_forecast
-        self.draw_plot(plt, weather_forecast)
+        self.__draw_plot(plt, weather_forecast)
 
     def draw_hourly_plot(self, plt: plotext):
         weather_forecast = self.hourly_forecast
-        self.draw_plot(plt, weather_forecast)
+        self.__draw_plot(plt, weather_forecast)
 
-    def draw_plot(self, plt: plotext, weather_forecast: DailyWeather | HourlyWeather):
+    def __draw_plot(self, plt: plotext, weather_forecast: DailyWeather | HourlyWeather):
         location = geocoder.coords_to_city_name(weather_forecast.latitude, weather_forecast.longitude)
         coords = helpers.coords_to_str(weather_forecast.latitude, weather_forecast.longitude)
 
@@ -84,13 +86,20 @@ class Plotter:
 # adapter for plotter
 @singledispatch
 def make_data_payload(weather_forecast: DailyWeather, params: list[str]) -> list[ndarray]:
-    labels = params["daily"]
+    # edit the labels list to select the displayed data among requested
+    # labels = params["daily"]
+    labels = ["temperature_2m_max",
+            "temperature_2m_min",
+            "apparent_temperature_max",
+            "apparent_temperature_min"]
     series = obj_properties_from_strings(weather_forecast, params["daily"])
     return series, labels
 
 @make_data_payload.register(HourlyWeather)
 def _(weather_forecast: HourlyWeather, params: list[str]) -> list[ndarray]:
-    labels = params["horly"]
+    # labels = params["hourly"]
+    labels = ["temperature_2m",
+                "apparent_temperature"]
     series = obj_properties_from_strings(weather_forecast, params["hourly"])
     return series, labels
 
