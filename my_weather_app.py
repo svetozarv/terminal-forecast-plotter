@@ -1,6 +1,6 @@
 import argparse
 import time
-from functools import singledispatch
+from functools import singledispatch, singledispatchmethod
 
 import numpy as np
 import plotext
@@ -14,29 +14,84 @@ from api_session import ApiSession, DailyWeather, HourlyWeather, Weather
 # TODO: Create interfaces for future extension??
 class MyWeatherApp:
     """
-    All the logic will be listed here
+    The main API. All the logic is listed here.
     """
     def __init__(self):
         self.api = ApiSession()
         # self.plotter = Plotter(plt)
-        self.current_city = None
-        self.geocoder = None
+        self.__current_coords = None
 
-    def get_current_forecast(self):
-        return self.api.get_current_weather()
+    def __update_current_coords(self, weather: Weather):
+        """
+        Updates the coords specified during last api call
+        """
+        self.__current_coords = (weather.latitude, weather.longitude)
 
-    def get_hourly_forecast(self):
-        return self.api.get_hourly_data()
+    @property
+    def current_coords(self):  # user cannot change current coords
+        return self.__current_coords
 
-    def get_daily_forecast(self):
-        return self.api.get_daily_data()
+    @singledispatchmethod
+    def __get_any_forecast(self, latitude: float, longitude: float, func):
+        """
+        Higher order function as an attempt to follow DRY
+        """
+        weather = func(latitude, longitude)
+        self.__update_current_coords(weather)
+        return weather
 
-    def draw_daily_plot(self, plt: plotext):
-        weather_forecast = self.get_daily_forecast()
+    @__get_any_forecast.register(str)
+    def _(self, city_name: str, func):
+        if city_name:
+            lat, lon = geocoder.city_name_to_coords(city_name)
+        else:
+            lat, lon = None, None
+        weather = func(lat, lon)
+        self.__update_current_coords(weather)
+        return weather
+
+    @singledispatchmethod
+    def get_hourly_forecast(self, latitude: float = None, longitude: float = None):
+        """
+        latitude and longitude can be None
+        in that case a random city will be chosen for demostration purposes
+        """
+        return self.__get_any_forecast(latitude, longitude, self.api.get_hourly_data)
+
+    @get_hourly_forecast.register(str)
+    def _(self, city_name: str = None):
+        return self.__get_any_forecast(city_name, self.api.get_hourly_data)
+
+    @singledispatchmethod
+    def get_daily_forecast(self, latitude: float = None, longitude: float = None):
+        """
+        latitude and longitude can be None
+        in that case a random city will be chosen for demostration purposes
+        """
+        return self.__get_any_forecast(latitude, longitude, self.api.get_daily_data)
+
+    @get_daily_forecast.register(str)
+    def _(self, city_name: str = None):
+        return self.__get_any_forecast(city_name, self.api.get_daily_data)
+
+    @singledispatchmethod
+    def get_current_weather(self, latitude: float = None, longitude: float = None):
+        """
+        latitude and longitude can be None
+        in that case a random city will be chosen for demostration purposes
+        """
+        return self.__get_any_forecast(latitude, longitude, self.api.get_current_weather)
+
+    @get_current_weather.register(str)
+    def _(self, city_name: str = None):
+        return self.__get_any_forecast(city_name, self.api.get_current_weather)
+
+    def draw_daily_plot(self, plt: plotext, city: str):
+        weather_forecast = self.get_daily_forecast(city)
         self.__draw_plot(plt, weather_forecast)
 
-    def draw_hourly_plot(self, plt: plotext):
-        weather_forecast = self.get_hourly_forecast()
+    def draw_hourly_plot(self, plt: plotext, city: str):
+        weather_forecast = self.get_hourly_forecast(city)
         self.__draw_plot(plt, weather_forecast)
 
     def __draw_plot(self, plt: plotext, weather_forecast: DailyWeather | HourlyWeather):
@@ -118,4 +173,4 @@ def obj_properties_from_strings(obj, ls: list[str]) -> list[any]:
 
 
 if __name__ == "__main__":
-    MyWeatherApp().draw_plot(plotext)
+    MyWeatherApp().draw_hourly_plot(plotext, "Amsterdam")
