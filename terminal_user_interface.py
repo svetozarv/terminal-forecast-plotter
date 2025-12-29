@@ -10,7 +10,7 @@ from textual_plotext import PlotextPlot
 
 import geocoder
 from my_weather_app import MyWeatherApp
-from user_settings import DbHandler
+from database_storage_manager import DatabaseStorageManager
 
 
 class MainScreen(Screen):
@@ -122,7 +122,7 @@ class AlertsScreen(Screen):
 
 class TerminalUserInterface(App):
     my_weather_app = MyWeatherApp()
-    db = DbHandler()
+    db = DatabaseStorageManager()
     city_prompt = None
 
     CSS_PATH = "terminal_user_interface.tcss"

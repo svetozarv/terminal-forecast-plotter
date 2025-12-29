@@ -1,8 +1,9 @@
 from dataclasses import dataclass
-from db_handler import Favourites, Alerts, DATABASE_FILENAME
+from database_orm import Favourites, Alerts, DATABASE_FILENAME
 from peewee import *
 
-class DbHandler:
+
+class DatabaseStorageManager:
     db = SqliteDatabase(DATABASE_FILENAME)
 
     def __init__(self):
@@ -40,6 +41,7 @@ class DbHandler:
     def __del__(self):
         # Have to close the connection and this is one way of doing it (through __del__)
         self.db.close()
+
 
 # TODO: Consider the following desing:
 # Favourite("Warszawa").save()
