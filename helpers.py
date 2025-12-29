@@ -1,10 +1,8 @@
 # Generic functions used in project
 import datetime as dt
 import time
-from functools import singledispatch
 
 import pandas as pd
-from numpy import ndarray
 
 from api_session import *
 

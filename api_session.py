@@ -38,8 +38,8 @@ class ApiSession:
 
         self.__url = "https://api.open-meteo.com/v1/forecast"
         self.__params = {
-            "latitude": default_lat if not latitude else latitude,
-            "longitude": default_lon if not longitude else longitude,
+            "latitude": self.__default_lat if not latitude else latitude,
+            "longitude": self.__default_lon if not longitude else longitude,
             "daily": [
                 "temperature_2m_max",
                 "temperature_2m_min",

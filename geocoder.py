@@ -31,4 +31,6 @@ def city_name_to_coords(city_name: str, country_name: str = None) -> tuple[float
 
 if __name__ == "__main__":
     a = city_name_to_coords("Warszawa", "Polska")
-    print(a)
+    print(f"Coodninates: {a}")
+    a = city_name_to_coords("Kyiv")
+    print(f"Coodninates: {a}")
