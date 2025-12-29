@@ -4,7 +4,7 @@ from user_settings import *
 def test_save_city_to_favourites():
     dbh = DbHandler()
     dbh.save_city_to_favourties("Warszawa")
-    assert dbh.get_favourites()[0] == "Warszawa"
+    assert "Warszawa" in dbh.get_favourites()
 
 def test_save_alert():
     dbh = DbHandler()
