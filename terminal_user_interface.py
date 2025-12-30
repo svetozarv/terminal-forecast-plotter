@@ -2,15 +2,26 @@ import asyncio
 
 from textual import on
 from textual.app import App, ComposeResult
-from textual.containers import Center, HorizontalGroup, VerticalScroll, Grid
+from textual.containers import Center, Grid, HorizontalGroup, VerticalScroll
 from textual.events import ScreenResume, ScreenSuspend
-from textual.screen import Screen, ModalScreen
-from textual.widgets import Footer, Header, Input, Label, Placeholder, Pretty
+from textual.screen import ModalScreen, Screen
+from textual.widgets import (
+    DataTable,
+    Footer,
+    Header,
+    Input,
+    Label,
+    ListItem,
+    ListView,
+    LoadingIndicator,
+    Placeholder,
+    Pretty,
+)
 from textual_plotext import PlotextPlot
 
 import geocoder
-from my_weather_app import MyWeatherApp
 from database_storage_manager import DatabaseStorageManager
+from my_weather_app import MyWeatherApp
 
 
 class MainScreen(Screen):
@@ -110,13 +121,30 @@ class PlotScreen(Screen):
 
 class FavouritesScreen(Screen):
     def compose(self) -> ComposeResult:
-        yield Placeholder(f"{app.screen}")
+        # yield Placeholder(f"{app.screen}")
+        with Center():
+            yield Label("Your favourite cities:")
+        with Center():
+            yield ListView()
         yield Footer()
+
+    def on_mount(self):
+        favourites = app.db.get_favourites()
+        list_view = self.screen.query_one(ListView)
+        for favourite in favourites:
+            list_view.append(ListItem(Label(favourite)))
+
+    @on(ListView.Selected)
+    def get_plot_for_city(self):
+        highlighted_index = self.screen.query_one(ListView).index
+        app.city_prompt = app.db.get_favourites()[highlighted_index]    # TODO: bottleneck to remove
+        app.switch_screen("plot")
 
 
 class AlertsScreen(Screen):
     def compose(self) -> ComposeResult:
         yield Placeholder("Alerts Screen")
+        yield DataTable()
         yield Footer()
 
 
