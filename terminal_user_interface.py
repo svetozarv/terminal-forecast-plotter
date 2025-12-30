@@ -26,17 +26,39 @@ from my_weather_app import MyWeatherApp
 
 class MainScreen(Screen):
     def compose(self) -> ComposeResult:
+        # TODO: Welcome label
+        # TODO: hidden alert message
         yield Placeholder("MainScreen")
         yield Footer()
+
+    @on(ScreenResume)
+    def check_alert_on_resume(self):
+        self.check_alerts()
+
+    def on_mount(self):
+        self.check_alerts()
+
+    def check_alerts(self):
+        for city, min_temp, max_temp in app.dbm.get_alerts():
+            self.check_alert_for_city(city, min_temp, max_temp)
+
+    def check_alert_for_city(self, city: str, min_temp: float, max_temp: float):
+        current_weather = app.my_weather_app.get_current_weather(*geocoder.city_name_to_coords(city))
+        current_temp = current_weather.temperature_2m
+        if not (min_temp < current_temp < max_temp):
+            self.display_alert()
+
+    def display_alert(self):
+        pass
 
 
 class CurrentWeatherScreen(Screen):
     def compose(self) -> ComposeResult:
-        help_label = "Hi! In this place you can check the weather in" + \
-                " any place in the world by typing it in" + \
-                " the field below."
+        help_label = "Hi! In this place you can check the weather in " + \
+            "any place in the world by typing it in " + \
+            "the field below."
         with Center():
-            yield Label(help_label, id="help_label")
+            yield Label(help_label, classes="help_label")
         with Center():
             yield Input(placeholder="Enter location...", id="city_input")
         # with Center():
@@ -68,7 +90,7 @@ class AskAlertDetailsScreen(ModalScreen):
     def add_alert(self):
         min_temp = self.screen.query_one("#min_temp_input").value
         max_temp = self.screen.query_one("#max_temp_input").value
-        app.db.create_temperature_alert(app.city_prompt, min_temp, max_temp)
+        app.dbm.create_temperature_alert(app.city_prompt, min_temp, max_temp)
 
     def on_input_submitted(self):
         self.add_alert()
@@ -89,7 +111,7 @@ class PlotScreen(Screen):
 
     def action_save_to_favourties(self):
         """Handles keybinding."""
-        app.db.save_city_to_favourties(geocoder.coords_to_city_name(*app.my_weather_app.current_coords))
+        app.dbm.save_city_to_favourties(geocoder.coords_to_city_name(*app.my_weather_app.current_coords))
 
     def action_draw_daily(self):
         """Handles keybinding."""
@@ -129,7 +151,7 @@ class FavouritesScreen(Screen):
         yield Footer()
 
     def on_mount(self):
-        favourites = app.db.get_favourites()
+        favourites = app.dbm.get_favourites()
         list_view = self.screen.query_one(ListView)
         for favourite in favourites:
             list_view.append(ListItem(Label(favourite)))
@@ -137,20 +159,29 @@ class FavouritesScreen(Screen):
     @on(ListView.Selected)
     def get_plot_for_city(self):
         highlighted_index = self.screen.query_one(ListView).index
-        app.city_prompt = app.db.get_favourites()[highlighted_index]    # TODO: bottleneck to remove
+        app.city_prompt = app.dbm.get_favourites()[highlighted_index]    # TODO: bottleneck to remove
         app.switch_screen("plot")
 
 
 class AlertsScreen(Screen):
+    COLUMNS = ["City", "Min. temp", "Max. temp"]
+    label = "These are your saved alerts:"
+
     def compose(self) -> ComposeResult:
-        yield Placeholder("Alerts Screen")
-        yield DataTable()
+        # yield Placeholder("Alerts Screen")
+        yield Label(self.label, classes="help_label")
+        yield DataTable(id="alerts_data_table")
         yield Footer()
+
+    def on_mount(self):
+        data_table = self.screen.query_one(DataTable)
+        data_table.add_columns(*self.COLUMNS)
+        data_table.add_rows(app.dbm.get_alerts())
 
 
 class TerminalUserInterface(App):
     my_weather_app = MyWeatherApp()
-    db = DatabaseStorageManager()
+    dbm = DatabaseStorageManager()
     city_prompt = None
 
     CSS_PATH = "terminal_user_interface.tcss"
