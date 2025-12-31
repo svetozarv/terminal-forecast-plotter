@@ -1,6 +1,7 @@
 import asyncio
 
 from textual import on
+from textual.binding import Binding
 from textual.app import App, ComposeResult
 from textual.containers import Center, Grid, HorizontalGroup, VerticalScroll
 from textual.events import ScreenResume, ScreenSuspend
@@ -27,7 +28,6 @@ from my_weather_app import MyWeatherApp
 class MainScreen(Screen):
     def compose(self) -> ComposeResult:
         # TODO: Welcome label
-        # TODO: hidden alert message
         yield Placeholder("MainScreen")
         yield Label("", id="alert_label")
         yield Footer()
@@ -56,7 +56,7 @@ class MainScreen(Screen):
         label.update(label_text)
 
 
-class CurrentWeatherScreen(Screen):
+class AskForCityScreen(Screen):
     def compose(self) -> ComposeResult:
         help_label = "Hi! In this place you can check the weather in " + \
             "any place in the world by typing it in " + \
@@ -71,8 +71,9 @@ class CurrentWeatherScreen(Screen):
             yield Pretty([])
         yield Footer()
 
-    def get_city_prompt(self):
+    def get_city_prompt(self) -> str:
         app.city_prompt = self.query_one(Input).value
+        # TODO: if value is 'c' switch to main
         return app.city_prompt
 
     def on_input_submitted(self):
@@ -86,8 +87,8 @@ class AskAlertDetailsScreen(ModalScreen):
             "You have to fill at least one field."
         yield Grid(
             Label(dialog_message, id="askforalert_dialog"),
-            Input(placeholder="Min. temp.", id="min_temp_input"),
-            Input(placeholder="Max. temp.", id="max_temp_input"),
+            Input(placeholder="Min. temp.", type='number', id="min_temp_input"),
+            Input(placeholder="Max. temp.", type='number', id="max_temp_input"),
             id="dialog",
         )
 
@@ -151,7 +152,7 @@ class FavouritesScreen(Screen):
         with Center():
             yield Label()
         with Center():
-            yield ListView()
+            yield ListView(initial_index=0)
         yield Footer()
 
     def on_mount(self):
@@ -205,18 +206,18 @@ class TerminalUserInterface(App):
 
     CSS_PATH = "terminal_user_interface.tcss"
     BINDINGS = [
-        ("w", "switch_to_screen('current_weather')", "Check weather"),
+        ("w", "switch_to_screen('ask_for_city')", "Check weather"),
         ("f", "switch_to_screen('favourites')", "Favourites"),
         ("a", "switch_to_screen('alerts')", "Alerts"),
-        ("m", "switch_to_screen('main')", "Return to main"),
+        Binding("m, escape", "switch_to_screen('main')", "Return to main", priority=True),
         ("d", "toggle_dark", "Toggle dark mode"),
     ]
     SCREENS = {
         "main": MainScreen,
-        "current_weather": CurrentWeatherScreen,
-        "plot": PlotScreen,
         "favourites": FavouritesScreen,
         "alerts": AlertsScreen,
+        "ask_for_city": AskForCityScreen,
+        "plot": PlotScreen,
         "ask_alert_details": AskAlertDetailsScreen,
     }
 
@@ -226,12 +227,9 @@ class TerminalUserInterface(App):
         yield Footer()
 
     def on_mount(self) -> None:
-        # self.install_screen("main")
-        # self.install_screen("favourites")
-        # self.install_screen("alerts")
-        # self.install_screen("current_weather")
-        self.push_screen("main")
+        # self.install_screen("plot")
         # self.theme = "nord"
+        self.push_screen("main")
 
     def action_switch_to_screen(self, name):
         self.switch_screen(name)
@@ -247,7 +245,7 @@ class TerminalUserInterface(App):
         if isinstance(self.screen, PlotScreen):
             if action == "switch_to_screen" and parameters[0] == "main":
                 return True
-            if action == "switch_to_screen" and parameters[0] == "current_weather":
+            if action == "switch_to_screen" and parameters[0] == "ask_for_city":
                 return False
             if action == "switch_to_screen" and parameters[0] == "alerts":
                 return False
@@ -255,6 +253,16 @@ class TerminalUserInterface(App):
                 return False
             if action == "toggle_dark":
                 return False
+        if isinstance(self.screen, AskAlertDetailsScreen):
+            pass
+        if isinstance(self.screen, AlertsScreen):
+            if action == "switch_to_screen" and parameters[0] == "alerts":
+                return False
+        if isinstance(self.screen, FavouritesScreen):
+            if action == "switch_to_screen" and parameters[0] == "favourites":
+                return False
+        if isinstance(self.screen, AskForCityScreen):
+            pass
         return True
 
 
