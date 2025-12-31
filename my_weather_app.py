@@ -1,14 +1,11 @@
-import argparse
-import time
 from functools import singledispatch, singledispatchmethod
 
-import numpy as np
 import plotext
 from numpy import ndarray
 
 import geocoder
 import helpers
-from api_session import ApiSession, DailyWeather, HourlyWeather, Weather
+from api_session import ApiSession, CurrentWeather, DailyWeather, HourlyWeather, Weather
 
 
 # TODO: Create interfaces for future extension??
@@ -34,7 +31,9 @@ class MyWeatherApp:
     @singledispatchmethod
     def __get_any_forecast(self, latitude: float, longitude: float, func):
         """
-        Higher order function as an attempt to follow DRY
+        Higher order function as an attempt to follow DRY.
+        Latitude and longitude can be None.
+        In that case, a random city will be chosen for demostration purposes.
         """
         weather = func(latitude, longitude)
         self.__update_current_coords(weather)
@@ -51,39 +50,27 @@ class MyWeatherApp:
         return weather
 
     @singledispatchmethod
-    def get_hourly_forecast(self, latitude: float = None, longitude: float = None):
-        """
-        latitude and longitude can be None
-        in that case a random city will be chosen for demostration purposes
-        """
+    def get_hourly_forecast(self, latitude: float = None, longitude: float = None) -> HourlyWeather:
         return self.__get_any_forecast(latitude, longitude, self.api.get_hourly_data)
 
     @get_hourly_forecast.register(str)
-    def _(self, city_name: str = None):
+    def _(self, city_name: str = None) -> HourlyWeather:
         return self.__get_any_forecast(city_name, self.api.get_hourly_data)
 
     @singledispatchmethod
-    def get_daily_forecast(self, latitude: float = None, longitude: float = None):
-        """
-        latitude and longitude can be None
-        in that case a random city will be chosen for demostration purposes
-        """
+    def get_daily_forecast(self, latitude: float = None, longitude: float = None) -> DailyWeather:
         return self.__get_any_forecast(latitude, longitude, self.api.get_daily_data)
 
     @get_daily_forecast.register(str)
-    def _(self, city_name: str = None):
+    def _(self, city_name: str = None) -> DailyWeather:
         return self.__get_any_forecast(city_name, self.api.get_daily_data)
 
     @singledispatchmethod
-    def get_current_weather(self, latitude: float = None, longitude: float = None):
-        """
-        latitude and longitude can be None
-        in that case a random city will be chosen for demostration purposes
-        """
+    def get_current_weather(self, latitude: float = None, longitude: float = None) -> CurrentWeather:
         return self.__get_any_forecast(latitude, longitude, self.api.get_current_weather)
 
     @get_current_weather.register(str)
-    def _(self, city_name: str = None):
+    def _(self, city_name: str = None) -> CurrentWeather:
         return self.__get_any_forecast(city_name, self.api.get_current_weather)
 
     def draw_daily_plot(self, plt: plotext, city: str):
@@ -141,9 +128,8 @@ class Plotter:
 # adapter for plotter
 @singledispatch
 def make_data_payload(weather_forecast: DailyWeather, params: list[str]) -> list[ndarray]:
-    # edit the labels list to select the displayed data among requested
     # labels = params["daily"]
-    labels = [
+    labels = [  # edit the labels list to select the displayed data among requested
         "temperature_2m_max",
         "temperature_2m_min",
         "apparent_temperature_max",
@@ -164,7 +150,7 @@ def _(weather_forecast: HourlyWeather, params: list[str]) -> list[ndarray]:
 
 def obj_properties_from_strings(obj, ls: list[str]) -> list[any]:
     """
-    `["height", "width"]` -> `[obj.height, obj.width]`
+    Example: `["height", "width"]` -> `[obj.height, obj.width]`
     """
     properties = []
     for property_str in ls:
