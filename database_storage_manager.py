@@ -1,4 +1,3 @@
-from dataclasses import dataclass
 from database_orm import Favourites, Alerts, DATABASE_FILENAME
 from peewee import *
 
@@ -6,7 +5,7 @@ from peewee import *
 class DatabaseStorageManager:
     db = SqliteDatabase(DATABASE_FILENAME)
 
-    def __init__(self):
+    def __init__(self, db_filename=DATABASE_FILENAME):
         self.db.connect()
 
     def save_city_to_favourties(self, city_name: str) -> bool:
@@ -17,16 +16,17 @@ class DatabaseStorageManager:
         return True
 
     def create_temperature_alert(self, city_name: str, min_temp: float, max_temp: float = None) -> bool:
-        if self.get_alert(city_name):
-            return False
         alert = Alerts(city_name=city_name, min_temp_alert=min_temp, max_temp_alert=max_temp)
-        status = alert.save()
-        return True
+        return alert.save()
 
     def get_alert(self, city_name: str) -> tuple[float, float] | None:
         alert = Alerts.get_or_none(Alerts.city_name == city_name)
         if not alert: return None
         return alert.min_temp_alert, alert.max_temp_alert
+
+    def get_alerts(self) -> list[tuple[str, float, float]]:
+        alerts = Alerts.select()
+        return list(map(lambda a: (a.city_name, a.min_temp_alert, a.max_temp_alert), alerts))
 
     def get_favourites(self) -> list[str]:
         cities = list(map(lambda favourite: favourite.city_name, Favourites.select()))
@@ -43,7 +43,7 @@ class DatabaseStorageManager:
         self.db.close()
 
 
-# TODO: Consider the following desing:
+# TODO: Consider the following design:
 # Favourite("Warszawa").save()
 # Alert("Warszawa", ...).save()
 # TemperatureAlert("Warszawa", -5, 30).save()
@@ -51,4 +51,5 @@ class DatabaseStorageManager:
 # ???
 
 if __name__ == "__main__":
-    pass
+    dbm = DatabaseStorageManager()
+    dbm.get_alerts()

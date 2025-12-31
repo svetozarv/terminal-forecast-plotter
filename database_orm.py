@@ -7,7 +7,7 @@ db = SqliteDatabase(DATABASE_FILENAME)
 class BaseModel(Model):
     # Creating a base class so all the children now know about the database we're working with
     class Meta:
-        database = db   # This model uses the "user_settings.db" database.
+        database = db    # This model uses the "user_settings.db" database. Mandatory attribute
 
 # A database table
 class Favourites(BaseModel):
@@ -21,12 +21,15 @@ class Alerts(BaseModel):
 
 # In order to start using the models, its necessary to create the tables.
 # This is a one-time operation and can be done quickly using the interactive interpreter
-def create_tables():
-    with db:
-        db.create_tables([Favourites, Alerts])
+def initialize_db(db_filename):
+    def create_tables():
+        with db:
+            db.create_tables([Favourites, Alerts])
 
-try:
-    with open(DATABASE_FILENAME) as file:
-        if not file: create_tables()
-except FileNotFoundError as err:
-    create_tables()
+    try:
+        with open(db_filename) as file:
+            if not file: create_tables()
+    except FileNotFoundError:
+        create_tables()
+
+initialize_db(DATABASE_FILENAME)
