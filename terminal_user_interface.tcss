@@ -11,6 +11,7 @@ ListView {
 }
 
 Label {
+    align: center middle;
     padding: 1 2;
 }
 
@@ -19,6 +20,11 @@ Placeholder {
         width: 40%;
         /* border: solid red; */
         height: 50%;
+}
+
+
+#alert_label {
+    color: red;
 }
 
 #plotext-plot {
@@ -31,7 +37,6 @@ Placeholder {
 }
 
 .help_label {
-    align: center middle;
     text-align: center;
     width: auto;
     margin: 1;

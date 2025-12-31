@@ -29,6 +29,7 @@ class MainScreen(Screen):
         # TODO: Welcome label
         # TODO: hidden alert message
         yield Placeholder("MainScreen")
+        yield Label("", id="alert_label")
         yield Footer()
 
     @on(ScreenResume)
@@ -45,11 +46,14 @@ class MainScreen(Screen):
     def check_alert_for_city(self, city: str, min_temp: float, max_temp: float):
         current_weather = app.my_weather_app.get_current_weather(*geocoder.city_name_to_coords(city))
         current_temp = current_weather.temperature_2m
-        if not (min_temp < current_temp < max_temp):
-            self.display_alert()
-
-    def display_alert(self):
-        pass
+        city_name = geocoder.coords_to_city_name(*app.my_weather_app.current_coords)
+        label = self.screen.query_one(Label)
+        label_text = "Alert has been triggered!\n"
+        if current_temp < min_temp:
+            label_text += f"The temperature for {city_name} has dropped below {min_temp}°C\n"
+        if current_temp > max_temp:
+            label_text += f"The temperature for {city_name} has raised above {max_temp}°C\n"
+        label.update(label_text)
 
 
 class CurrentWeatherScreen(Screen):
@@ -145,13 +149,19 @@ class FavouritesScreen(Screen):
     def compose(self) -> ComposeResult:
         # yield Placeholder(f"{app.screen}")
         with Center():
-            yield Label("Your favourite cities:")
+            yield Label()
         with Center():
             yield ListView()
         yield Footer()
 
     def on_mount(self):
         favourites = app.dbm.get_favourites()
+        label = self.screen.query_one(Label)
+        if not favourites:
+            label.update("You haven't saved any cities yet.")
+        else:
+            label.update("Your favourite cities:")
+
         list_view = self.screen.query_one(ListView)
         for favourite in favourites:
             list_view.append(ListItem(Label(favourite)))
@@ -169,14 +179,23 @@ class AlertsScreen(Screen):
 
     def compose(self) -> ComposeResult:
         # yield Placeholder("Alerts Screen")
-        yield Label(self.label, classes="help_label")
+        yield Label("", classes="help_label")
         yield DataTable(id="alerts_data_table")
         yield Footer()
 
     def on_mount(self):
         data_table = self.screen.query_one(DataTable)
         data_table.add_columns(*self.COLUMNS)
-        data_table.add_rows(app.dbm.get_alerts())
+        alerts = app.dbm.get_alerts()
+        data_table.add_rows(alerts)
+
+        label = self.screen.query_one(Label)
+        if not alerts:
+            label.update("You haven't saved any cities yet.")
+            data_table.display = False
+        else:
+            label.update(self.label)
+            data_table.display = True
 
 
 class TerminalUserInterface(App):
