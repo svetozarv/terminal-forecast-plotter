@@ -2,7 +2,7 @@ from geopy import Location
 from geopy.exc import GeopyError
 from geopy.geocoders import Nominatim
 
-from helpers import coords_to_str
+# from helpers import coords_to_str
 
 
 class Geocoder:
@@ -10,7 +10,7 @@ class Geocoder:
         self.geolocator = Nominatim(user_agent="my_geopy_app")
         self.cache = {}
 
-    def coords_to_city_name(self, latitude: float, longitude: float) -> str | None:
+    def convert_coords_to_city_name(self, latitude: float, longitude: float) -> str | None:
         """
         Example: `52.2297, 21.0122` -> `Warszawa, Polska`
         """
@@ -20,13 +20,16 @@ class Geocoder:
         try:
             location = self.geolocator.reverse(f"{latitude}, {longitude}", language="en")
             display_name = location.raw.get("display_name", f"{latitude}, {longitude}")
+            address: dict = location.raw.get("address", None)
         except GeopyError as e:  # any GeoCoder exeption
             return f"{latitude}, {longitude}"
 
-        self.cache[(latitude, longitude)] = display_name
-        return display_name
+        city_name = address.get("city", address.get("town", address.get("village", None)))
+        country_name = address.get("country", None)
+        self.cache[(latitude, longitude)] = f"{city_name}, {country_name}" if city_name and country_name else display_name or f"{latitude}, {longitude}"
+        return self.cache[(latitude, longitude)]
 
-    def city_name_to_coords(self, city_name: str, country_name: str = None) -> tuple[float, float] | None:
+    def convert_city_name_to_coords(self, city_name: str, country_name: str = None) -> tuple[float, float] | None:
         if city_name in self.cache:
             return self.cache[city_name]
 
@@ -46,7 +49,7 @@ if __name__ == "__main__":
     print(location.raw)
 
     geo = Geocoder()
-    a = geo.city_name_to_coords("Warszawa", "Polska")
-    print(f"Coodninates: {a}")
-    a = geo.city_name_to_coords("Zakopane")
-    print(f"Coodninates: {a}")
+    fizz = geo.convert_city_name_to_coords("Warszawa", "Polska")
+    print(f"Coodninates: {fizz}")
+    buzz = geo.convert_city_name_to_coords("Zakopane")
+    print(f"Coodninates: {buzz}")
