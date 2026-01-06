@@ -55,6 +55,7 @@ AskforAlert {
     height: 1fr;
     width: 1fr;
     content-align: center middle;
+    align: center middle;
 }
 
 #dialog {

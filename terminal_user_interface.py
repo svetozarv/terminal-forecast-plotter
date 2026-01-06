@@ -1,8 +1,9 @@
 import asyncio
 
+import peewee as pw
 from textual import on
-from textual.binding import Binding
 from textual.app import App, ComposeResult
+from textual.binding import Binding
 from textual.containers import Center, Grid, HorizontalGroup, VerticalScroll
 from textual.events import ScreenResume, ScreenSuspend
 from textual.screen import ModalScreen, Screen
@@ -20,8 +21,8 @@ from textual.widgets import (
 )
 from textual_plotext import PlotextPlot
 
-import geocoder
-from database_storage_manager import DatabaseStorageManager
+from database_orm import DATABASE_FILENAME, Alert
+from geocoder import Location
 from my_weather_app import MyWeatherApp
 
 
@@ -40,19 +41,19 @@ class MainScreen(Screen):
         self.check_alerts()
 
     def check_alerts(self):
-        for city, min_temp, max_temp in app.dbm.get_alerts():
-            self.check_alert_for_city(city, min_temp, max_temp)
+        for alert in list(Alert.select()):
+            self.check_alert_for_city(alert.city_name, alert.min_temp, alert.max_temp)
 
     def check_alert_for_city(self, city: str, min_temp: float, max_temp: float):
-        current_weather = app.my_weather_app.get_current_weather(*geocoder.city_name_to_coords(city))
+        location = Location(city_prompt=city)
+        current_weather = app.my_weather_app.get_current_weather(location)
         current_temp = current_weather.temperature_2m
-        city_name = geocoder.coords_to_city_name(*app.my_weather_app.current_coords)
         label = self.screen.query_one(Label)
         label_text = "Alert has been triggered!\n"
         if current_temp < min_temp:
-            label_text += f"The temperature for {city_name} has dropped below {min_temp}°C\n"
+            label_text += f"The temperature for {location.city_name} has dropped below {min_temp}°C\n"
         if current_temp > max_temp:
-            label_text += f"The temperature for {city_name} has raised above {max_temp}°C\n"
+            label_text += f"The temperature for {location.city_name} has raised above {max_temp}°C\n"
         label.update(label_text)
 
 
@@ -65,15 +66,12 @@ class AskForCityScreen(Screen):
             yield Label(help_label, classes="help_label")
         with Center():
             yield Input(placeholder="Enter location...", id="city_input")
-        # with Center():
-            # yield Placeholder("Curr Weather Screen")
         with Center():
             yield Pretty([])
         yield Footer()
 
     def get_city_prompt(self) -> str:
         app.city_prompt = self.query_one(Input).value
-        # TODO: if value is 'c' switch to main
         return app.city_prompt
 
     def on_input_submitted(self):
@@ -82,7 +80,7 @@ class AskForCityScreen(Screen):
 
 
 class AskAlertDetailsScreen(ModalScreen):
-    def compose(self):
+    def compose(self) -> ComposeResult:
         dialog_message = "Please, provide the temperatures for alert to trigger." + \
             "You have to fill at least one field."
         yield Grid(
@@ -95,7 +93,9 @@ class AskAlertDetailsScreen(ModalScreen):
     def add_alert(self):
         min_temp = self.screen.query_one("#min_temp_input").value
         max_temp = self.screen.query_one("#max_temp_input").value
-        app.dbm.create_temperature_alert(app.city_prompt, min_temp, max_temp)
+        row = Alert.update(min_temp=min_temp, max_temp=max_temp).where(
+            Alert.city_name == app.my_weather_app.current_location.city_name
+        ).execute()
 
     def on_input_submitted(self):
         self.add_alert()
@@ -104,8 +104,7 @@ class AskAlertDetailsScreen(ModalScreen):
 
 class PlotScreen(Screen):
     BINDINGS = [
-        ("j", "draw_daily", "See daily forecast"),
-        ("h", "draw_hourly", "See hourly forecast"),
+        ("t", "toggle_precision_mode", "Toggle daily/hourly"),
         ("s", "save_to_favourties", "Save to favourites"),
         ("a", "ask_for_details", "Add alert"),
     ]
@@ -116,22 +115,35 @@ class PlotScreen(Screen):
 
     def action_save_to_favourties(self):
         """Handles keybinding."""
-        app.dbm.save_city_to_favourties(geocoder.coords_to_city_name(*app.my_weather_app.current_coords))
+        if Alert.get_or_none(Alert.city_name == app.my_weather_app.current_location.city_name):
+            return
+        Alert(city_name=app.my_weather_app.current_location.city_name).save()
+        # self.screen.styles.background = "lime"
+        # self.screen.styles.animate("opacity", value=0.0, duration=1.0)
 
-    def action_draw_daily(self):
+
+
+    def action_toggle_precision_mode(self):
+        """Handles keybinding."""
+        if self.displaying_daily:
+            self.draw_hourly()
+        else:
+            self.draw_daily()
+
+    def draw_daily(self):
         """Handles keybinding."""
         plt = self.query_one(PlotextPlot).plt
         app.my_weather_app.draw_daily_plot(plt, app.city_prompt)
         self.query_one(PlotextPlot).refresh()
+        self.displaying_daily = True
+        self.displaying_hourly = False
 
     def draw_hourly(self):
         plt = self.query_one(PlotextPlot).plt
         app.my_weather_app.draw_hourly_plot(plt, app.city_prompt)
         self.query_one(PlotextPlot).refresh()
-
-    def action_draw_hourly(self):
-        """Handles keybinding."""
-        self.draw_hourly()
+        self.displaying_daily = False
+        self.displaying_hourly = True
 
     @on(ScreenResume)
     def draw_hourly_on_resume(self):
@@ -155,8 +167,9 @@ class FavouritesScreen(Screen):
             yield ListView(initial_index=0)
         yield Footer()
 
+    @on(ScreenResume)
     def on_mount(self):
-        favourites = app.dbm.get_favourites()
+        favourites = list(map(lambda favourite: favourite.city_name, Alert.select(Alert.city_name)))
         label = self.screen.query_one(Label)
         if not favourites:
             label.update("You haven't saved any cities yet.")
@@ -164,13 +177,14 @@ class FavouritesScreen(Screen):
             label.update("Your favourite cities:")
 
         list_view = self.screen.query_one(ListView)
+        list_view.clear()
         for favourite in favourites:
             list_view.append(ListItem(Label(favourite)))
 
     @on(ListView.Selected)
     def get_plot_for_city(self):
         highlighted_index = self.screen.query_one(ListView).index
-        app.city_prompt = app.dbm.get_favourites()[highlighted_index]    # TODO: bottleneck to remove
+        app.city_prompt = Alert.select(Alert.city_name)[highlighted_index].city_name    # TODO: bottleneck to remove
         app.switch_screen("plot")
 
 
@@ -184,14 +198,25 @@ class AlertsScreen(Screen):
         yield DataTable(id="alerts_data_table")
         yield Footer()
 
+    @on(ScreenResume)
+    def update_rows(self):
+        data_table = self.screen.query_one(DataTable)
+        data_table.clear()
+        alerts = list(
+            map(
+                lambda a: (a.city_name, a.min_temp, a.max_temp),
+                Alert.select(Alert.city_name, Alert.min_temp, Alert.max_temp),
+            )
+        )
+        data_table.add_rows(alerts)
+
     def on_mount(self):
         data_table = self.screen.query_one(DataTable)
         data_table.add_columns(*self.COLUMNS)
-        alerts = app.dbm.get_alerts()
-        data_table.add_rows(alerts)
+        self.update_rows()
 
         label = self.screen.query_one(Label)
-        if not alerts:
+        if data_table.row_count == 0:
             label.update("You haven't saved any cities yet.")
             data_table.display = False
         else:
@@ -201,8 +226,9 @@ class AlertsScreen(Screen):
 
 class TerminalUserInterface(App):
     my_weather_app = MyWeatherApp()
-    dbm = DatabaseStorageManager()
-    city_prompt = None
+    db = pw.SqliteDatabase(DATABASE_FILENAME)
+    db.connect()
+    city_prompt = None  # to store the city name entered by user between screens
 
     CSS_PATH = "terminal_user_interface.tcss"
     BINDINGS = [
@@ -269,3 +295,4 @@ class TerminalUserInterface(App):
 if __name__ == "__main__":
     app = TerminalUserInterface()
     app.run()
+    app.db.close()

@@ -1,4 +1,4 @@
-from peewee import *
+from peewee import SqliteDatabase, Model, CharField, FloatField 
 
 DATABASE_FILENAME = 'user_settings.db'
 db = SqliteDatabase(DATABASE_FILENAME)
@@ -7,16 +7,21 @@ db = SqliteDatabase(DATABASE_FILENAME)
 class BaseModel(Model):
     # Creating a base class so all the children now know about the database we're working with
     class Meta:
-        database = db    # This model uses the "user_settings.db" database. Mandatory attribute
+        database = db    # This model uses the "user_settings.db" database. Mandatory attribute.
 
-# A database table
-class Favourites(BaseModel):
-    city_name = CharField()  # column on the table
 
-class Alerts(BaseModel):
-    city_name = CharField()
-    min_temp_alert = FloatField(default=None)
-    max_temp_alert = FloatField(default=None)
+class Alert(BaseModel):  # A database table
+    city_name = CharField()  # or Location object?      # column on the table
+    min_temp = FloatField(default=-273.15)
+    max_temp = FloatField(default=1000.0)
+    # min_wind_speed = FloatField(default=0.0)
+    # max_wind_speed = FloatField(default=100.0)
+    # min_precipitation = FloatField(default=0.0)
+    # max_precipitation = FloatField(default=1000.0)
+    # min_humidity = FloatField(default=0.0)
+    # max_humidity = FloatField(default=100.0)
+    # min_pressure = FloatField(default=0.0)
+    # max_pressure = FloatField(default=2000.0)
     # ...
 
 # In order to start using the models, its necessary to create the tables.
@@ -24,7 +29,7 @@ class Alerts(BaseModel):
 def initialize_db(db_filename):
     def create_tables():
         with db:
-            db.create_tables([Favourites, Alerts])
+            db.create_tables([Alert])
 
     try:
         with open(db_filename) as file:

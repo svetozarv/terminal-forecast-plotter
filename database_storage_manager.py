@@ -1,5 +1,6 @@
-from database_orm import Favourites, Alerts, DATABASE_FILENAME
 from peewee import *
+
+from database_orm import DATABASE_FILENAME, Alert
 
 
 class DatabaseStorageManager:
@@ -8,34 +9,36 @@ class DatabaseStorageManager:
     def __init__(self, db_filename=DATABASE_FILENAME):
         self.db.connect()
 
+    # def __init__(self, db: SqliteDatabase):
+    #     self.db.connect()
+
+    # def __init__(self, storage: AstractStorage):
+    #     self.storage.connect()
+    #
+    # dbm = DatabaseStorageManager(sqlitedatabase)
+
     def save_city_to_favourties(self, city_name: str) -> bool:
         if city_name in self.get_favourites():
-            return False
-        city = Favourites(city_name=city_name)
-        status = city.save()
-        return True
+            return
+        return Alert(city_name=city_name).save()
 
     def create_temperature_alert(self, city_name: str, min_temp: float, max_temp: float = None) -> bool:
-        alert = Alerts(city_name=city_name, min_temp_alert=min_temp, max_temp_alert=max_temp)
+        alert = Alert(city_name=city_name, min_temp=min_temp, max_temp=max_temp)
         return alert.save()
 
     def get_alert(self, city_name: str) -> tuple[float, float] | None:
-        alert = Alerts.get_or_none(Alerts.city_name == city_name)
+        alert = Alert.get_or_none(Alert.city_name == city_name)
         if not alert: return None
-        return alert.min_temp_alert, alert.max_temp_alert
+        return alert.min_temp, alert.max_temp
 
     def get_alerts(self) -> list[tuple[str, float, float]]:
-        alerts = Alerts.select()
-        return list(map(lambda a: (a.city_name, a.min_temp_alert, a.max_temp_alert), alerts))
+        return list(map(lambda a: (a.city_name, a.min_temp, a.max_temp), Alert.select()))
 
     def get_favourites(self) -> list[str]:
-        cities = list(map(lambda favourite: favourite.city_name, Favourites.select()))
-        return cities
+        return list(map(lambda favourite: favourite.city_name, Alert.select(Alert.city_name)))
 
     def erase(self):
-        for query in Alerts.select():
-            query.delete_instance()
-        for query in Favourites.select():
+        for query in Alert.select():
             query.delete_instance()
 
     def __del__(self):
