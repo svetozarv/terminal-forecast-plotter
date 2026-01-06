@@ -1,15 +1,13 @@
-from dataclasses import dataclass
 import datetime as dt
-import random
 import logging
+import random
+from dataclasses import dataclass
 
 import openmeteo_requests
 import pandas as pd
 import requests_cache
 from openmeteo_requests.Client import WeatherApiResponse
 from retry_requests import retry
-
-import geocoder
 
 # https://open-meteo.com/en/docs
 # a dictionary of some major cities for random selection
@@ -148,32 +146,6 @@ class ApiSession:
         if verbose:
             daily.print_info()
         return daily
-
-
-class Location:
-    def __init__(self, latitude: float, longitude: float):
-        self.latitude = latitude
-        self.longitude = longitude
-        self.elevation = None
-        self.timezone_diff_utc0 = None
-        self.geo = geocoder.Geocoder()
-        self.__display_name = None
-
-    @property
-    def display_name(self) -> str:
-        if self.__display_name:
-            return self.__display_name
-        self.__display_name = self.geo.convert_coords_to_city_name(self.latitude, self.longitude)
-        return self.__display_name
-
-    def to_coords(self) -> tuple[float, float]:
-        return (self.latitude, self.longitude)
-
-    def print_info(self):
-        print(f"Coordinates: {self.latitude}°N {self.longitude}°E")
-        print(f"Elevation: {self.elevation} m asl")
-        print(f"Timezone difference to GMT+0: {self.timezone_diff_utc0}s")
-
 
 # These classes represent received weather data (JSON response parsed to dataclasses)
 @dataclass(frozen=True)
