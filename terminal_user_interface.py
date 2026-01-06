@@ -1,7 +1,9 @@
 import asyncio
+import logging
 
+logging.getLogger(__name__)
 import peewee as pw
-from textual import on
+from textual import on, work
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Center, Grid, HorizontalGroup, VerticalScroll
@@ -30,14 +32,17 @@ class MainScreen(Screen):
     def compose(self) -> ComposeResult:
         # TODO: Welcome label
         yield Placeholder("MainScreen")
-        yield Label("", id="alert_label")
+        yield Label("Alert has been triggered!\n", id="alert_triggered_label")
+        yield Label("", id="alerts_label")
         yield Footer()
 
     @on(ScreenResume)
     def check_alert_on_resume(self):
+        self.screen.query_one("#alerts_label", Label).update("")
         self.check_alerts()
 
     def on_mount(self):
+        self.screen.query_one("#alert_triggered_label", Label).display = False
         self.check_alerts()
 
     def check_alerts(self):
@@ -45,16 +50,19 @@ class MainScreen(Screen):
             self.check_alert_for_city(alert.city_name, alert.min_temp, alert.max_temp)
 
     def check_alert_for_city(self, city: str, min_temp: float, max_temp: float):
-        location = Location(city_prompt=city)
+        location = Location(city_prompt=city)       # bottleneck to remove
         current_weather = app.my_weather_app.get_current_weather(location)
         current_temp = current_weather.temperature_2m
-        label = self.screen.query_one(Label)
-        label_text = "Alert has been triggered!\n"
+        alerts_label = self.screen.query_one("#alerts_label", Label)
+        alert_triggered_label = self.screen.query_one("#alert_triggered_label", Label)
+        label_text = alerts_label.content
         if current_temp < min_temp:
             label_text += f"The temperature for {location.city_name} has dropped below {min_temp}°C\n"
+            alert_triggered_label.display = True
         if current_temp > max_temp:
+            alert_triggered_label.display = True
             label_text += f"The temperature for {location.city_name} has raised above {max_temp}°C\n"
-        label.update(label_text)
+        alerts_label.update(label_text)
 
 
 class AskForCityScreen(Screen):
@@ -109,6 +117,38 @@ class PlotScreen(Screen):
         ("a", "ask_for_details", "Add alert"),
     ]
 
+    def compose(self) -> ComposeResult:
+        # yield Placeholder("PlotScreen")
+        yield PlotextPlot(id="plotext-plot")
+        yield Footer()
+
+    def on_mount(self):
+        self.screen.loading = True
+        self.draw_hourly()
+
+    @on(ScreenResume)
+    def draw_hourly_on_resume(self):
+        self.screen.loading = True
+        self.draw_hourly()
+
+    @work
+    async def draw_hourly(self):
+        plt = self.query_one(PlotextPlot).plt
+        await app.my_weather_app.draw_hourly_plot(plt, app.city_prompt)
+        self.query_one(PlotextPlot).refresh()
+        self.screen.loading = False
+        self.displaying_daily = False
+        self.displaying_hourly = True
+
+    @work
+    async def draw_daily(self):
+        plt = self.query_one(PlotextPlot).plt
+        await app.my_weather_app.draw_daily_plot(plt, app.city_prompt)
+        self.query_one(PlotextPlot).refresh()
+        self.screen.loading = False
+        self.displaying_daily = True
+        self.displaying_hourly = False
+
     def action_ask_for_details(self):
         """Handles keybinding."""
         app.push_screen("ask_alert_details")
@@ -121,41 +161,13 @@ class PlotScreen(Screen):
         # self.screen.styles.background = "lime"
         # self.screen.styles.animate("opacity", value=0.0, duration=1.0)
 
-
-
     def action_toggle_precision_mode(self):
         """Handles keybinding."""
+        self.screen.loading = True
         if self.displaying_daily:
             self.draw_hourly()
         else:
             self.draw_daily()
-
-    def draw_daily(self):
-        """Handles keybinding."""
-        plt = self.query_one(PlotextPlot).plt
-        app.my_weather_app.draw_daily_plot(plt, app.city_prompt)
-        self.query_one(PlotextPlot).refresh()
-        self.displaying_daily = True
-        self.displaying_hourly = False
-
-    def draw_hourly(self):
-        plt = self.query_one(PlotextPlot).plt
-        app.my_weather_app.draw_hourly_plot(plt, app.city_prompt)
-        self.query_one(PlotextPlot).refresh()
-        self.displaying_daily = False
-        self.displaying_hourly = True
-
-    @on(ScreenResume)
-    def draw_hourly_on_resume(self):
-        self.draw_hourly()
-
-    def on_mount(self):
-        self.draw_hourly()
-
-    def compose(self) -> ComposeResult:
-        # yield Placeholder("PlotScreen")
-        yield PlotextPlot(id="plotext-plot")
-        yield Footer()
 
 
 class FavouritesScreen(Screen):
@@ -293,6 +305,7 @@ class TerminalUserInterface(App):
 
 
 if __name__ == "__main__":
+    logging.basicConfig(filename='tui.log', level=logging.INFO)
     app = TerminalUserInterface()
     app.run()
     app.db.close()
