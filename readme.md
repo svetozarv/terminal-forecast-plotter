@@ -6,7 +6,7 @@ Terminal app that allows to see a plot of weather forecast for (almost) any plac
 Of course, you need to install prerequisites first. (Guide will appear here soon.)
 
 ## How is implemented?
-- `api_session.py` contains `ApiSession` class that implements the methods used to get data: `get_current_weather(lat, lon)`,`get_hourly_data(lat, lon)` and `get_daily_data(lat, lon)`. Latitude and longitude must be provided. These methods return objects of `CurrentWeather`, `HourlyWeather` and `DailyWeather` respectively, that represent the json returned by the [OpenMeteo API](https://open-meteo.com/en/docs).
+- `api_session.py` contains `ApiSession` class that implements the methods used to get data: `get_current_weather(lat, lon)`, `get_hourly_data(lat, lon)` and `get_daily_data(lat, lon)`. Latitude and longitude must be provided. These methods return objects of `CurrentWeather`, `HourlyWeather` and `DailyWeather` respectively, that represent the json returned by the [OpenMeteo API](https://open-meteo.com/en/docs).
 
 - `database_orm.py` uses `peewee` to define database model
 
