@@ -21,9 +21,9 @@ class MyWeatherApp:
     The main API. All the logic is listed here.
     """
     def __init__(self):
-        self.api = ApiSession()
+        self.__current_location = Location(city_prompt="Warszawa")  # default
+        self.api = ApiSession(self.__current_location.coords[0], self.__current_location.coords[1])
         self.geocoder = Geocoder()
-        self.__current_location = None
 
     def get_current_weather(self, location: Location = None) -> CurrentWeatherForecast:
         if location is None:
@@ -57,7 +57,9 @@ class MyWeatherApp:
         """
         Updates the location specified during last api call
         """
-        self.__current_location = Location(weather.latitude, weather.longitude)
+        if not weather:
+            raise ValueError("No weather data to update location from.")
+        self.__current_location.coords = (weather.latitude, weather.longitude)
 
     def draw_daily_plot(self, plt: plotext, city: str):
         weather_forecast = self.get_daily_forecast(Location(city_prompt=city))
