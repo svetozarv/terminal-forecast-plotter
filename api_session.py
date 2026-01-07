@@ -78,7 +78,8 @@ class ApiSession:
         }
 
         self._last_response: WeatherApiResponse | None = None # типо атрибут если у тебя ласт респонса нет, то мы идем к следующему блоку, а если есть то мы его чекаем параметрами которыми ты написал
-
+        self._last_lat: float | None = None
+        self._last_lon: float | None = None
     @property
     def params(self):
         return self.__params
@@ -104,18 +105,18 @@ class ApiSession:
         if not latitude or not longitude:
             latitude = self.__default_lat
             longitude = self.__default_lon
-        self.__change_target_location(latitude, longitude)
 
-        # А вот это если у нас уже есть ласт респонс то мы его просто реюзаем
-        if self._last_response:
-            resp_lat = self._last_response.Latitude()
-            resp_lon = self._last_response.Longitude()
-            if resp_lat == latitude and resp_lon == longitude:
+        if self._last_response is not None:
+            if self._last_lat == latitude and self._last_lon == longitude:
                 return self._last_response
+
+        self.__change_target_location(latitude, longitude)
 
         # Process first location. Add a for-loop for multiple locations or weather models
         responses = self.__openmeteo.weather_api(self.__url, params=self.__params)
         self._last_response = responses[0]
+        self._last_lat = latitude
+        self._last_lon = longitude
         return self._last_response
 
         # здесь реюзаем ласт респонс в случае если его нет ты делаешь новый колл
