@@ -77,6 +77,8 @@ class ApiSession:
             "timezone": "auto",
         }
 
+        self._last_response: WeatherApiResponse | None = None # типо атрибут если у тебя ласт респонса нет, то мы идем к следующему блоку, а если есть то мы его чекаем параметрами которыми ты написал
+
     @property
     def params(self):
         return self.__params
@@ -104,10 +106,19 @@ class ApiSession:
             longitude = self.__default_lon
         self.__change_target_location(latitude, longitude)
 
+        # А вот это если у нас уже есть ласт респонс то мы его просто реюзаем
+        if self._last_response:
+            resp_lat = self._last_response.Latitude()
+            resp_lon = self._last_response.Longitude()
+            if resp_lat == latitude and resp_lon == longitude:
+                return self._last_response
+
         # Process first location. Add a for-loop for multiple locations or weather models
         responses = self.__openmeteo.weather_api(self.__url, params=self.__params)
-        response = responses[0]
-        return response
+        self._last_response = responses[0]
+        return self._last_response
+
+        # здесь реюзаем ласт респонс в случае если его нет ты делаешь новый колл
 
     def get_current_weather(
         self, latitude: float = None, longitude: float = None, verbose=False
