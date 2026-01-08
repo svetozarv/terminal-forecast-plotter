@@ -1,5 +1,8 @@
 import datetime as dt
+import time
 import logging
+logging.getLogger(__name__)
+logging.basicConfig(filename='logs/api_session.log', level=logging.INFO)
 import random
 from dataclasses import dataclass
 
@@ -26,20 +29,22 @@ cities = {
 }
 
 class ApiSession:
-    def __init__(self, latitude: float = None, longitude: float = None):
+    def __init__(self, latitude: float = None, longitude: float = None, allow_none=True):
         """
         Initialize API session with provided coordinates (randomly chosen if not provided)
         """
-        if not latitude or not longitude:  # coords wasn't provided, pick a random city
+        if latitude is None or longitude is None:  # coords weren't provided, pick a random city
+            if not allow_none:
+                raise ValueError("Coords cannot be None (allow_none is set to False)")
             random_city = random.choice(list(cities.keys()))
             latitude, longitude = cities[random_city]
         elif not isinstance(latitude, float) or not isinstance(longitude, float):  # coords provided, validate
             raise ValueError("Latitude and Longitude must be float values.")
-        logging.debug(f"Default city for API session: ({latitude}, {longitude})")
+        logging.info(f"Default city for API session: ({latitude}, {longitude})")
         self.change_default_location(latitude, longitude)
 
         # Setup the Open-Meteo API client with cache and retry on error
-        self.__cache_session = requests_cache.CachedSession(".cache", expire_after=3600)
+        self.__cache_session = requests_cache.CachedSession(".cache", expire_after=3600)   # in seconds
         self.__retry_session = retry(self.__cache_session, retries=5, backoff_factor=0.2)
         self.__openmeteo = openmeteo_requests.Client(session=self.__retry_session)
 
@@ -76,6 +81,9 @@ class ApiSession:
             ],
             "timezone": "auto",
         }
+        self.__last_api_response: WeatherApiResponse = None  # TODO
+        self.__last_api_response_time: int = None
+        self.__num_of_api_calls = 0
 
     @property
     def params(self):
@@ -93,13 +101,24 @@ class ApiSession:
         self.__params["latitude"] = latitude
         self.__params["longitude"] = longitude
 
+    def __same_coords_and_not_enough_time_passed(self, latitude, longitude) -> bool:
+        return self.__last_api_response is not None and \
+            latitude == self.__last_api_response.Latitude() and \
+            longitude == self.__last_api_response.Longitude() and \
+            self.__last_api_response_time is not None and \
+            time.time() - self.__last_api_response_time < 3600
+
     def _make_api_call(self, latitude: float = None, longitude: float = None) -> WeatherApiResponse:
         """
         Make a single call (only one city/result) for provided coords.
-        If coords are not provided, default coords will be used (set during initialization).
+        If at least one coordinate isn't provided, default coords will be used (set during initialization).
         """
+        # quick lookup in cache
+        if self.__same_coords_and_not_enough_time_passed(latitude, longitude):
+            return self.__last_api_response
+
         # Update self.__params if args are provided else use default values
-        if not latitude or not longitude:
+        if latitude is None or longitude is None:
             latitude = self.__default_lat
             longitude = self.__default_lon
         self.__change_target_location(latitude, longitude)
@@ -107,6 +126,8 @@ class ApiSession:
         # Process first location. Add a for-loop for multiple locations or weather models
         responses = self.__openmeteo.weather_api(self.__url, params=self.__params)
         response = responses[0]
+        self.__last_api_response = response
+        self.__last_api_response_time = time.time()
         return response
 
     def get_current_weather(
@@ -147,7 +168,8 @@ class ApiSession:
             daily.print_info()
         return daily
 
-# These classes represent received weather data (JSON response parsed to dataclasses)
+
+# These classes represent received weather data (response parsed to dataclasses)
 @dataclass(frozen=True)
 class WeatherForecast:  # or Position?
     latitude: float
@@ -155,7 +177,7 @@ class WeatherForecast:  # or Position?
     elevation: float
     timezone_diff_utc0: int
 
-    def print_info(self):   # or to_datasframe()?
+    def print_info(self):
         print(f"Latitude: {self.latitude}°N")
         print(f"Longitude: {self.longitude}°E")
         print(f"Elevation: {self.elevation} m asl")
@@ -203,7 +225,7 @@ class HourlyWeatherForecast(IntervalicWeatherForecast):
     apparent_temperature: pd.Series
     relative_humidity_2m: pd.Series
 
-    def print_info(self):
+    def print_info(self):  # or to_dataframe()?
         hourly_data = {
             "date": pd.date_range(
                 start=pd.to_datetime(self.time, unit="s", utc=True),
@@ -260,22 +282,9 @@ class DailyWeatherForecast(IntervalicWeatherForecast):
 
 
 class WeatherForecastFactory:
+    """Unpacks OpenMeteo API response into Weather objects."""
     @staticmethod
     def create_current_weather_forecast(open_meteo_response: WeatherApiResponse) -> "CurrentWeatherForecast":
-        return CurrentWeatherFactory.create(open_meteo_response)
-
-    @staticmethod
-    def create_hourly_weather_forecast(open_meteo_response: WeatherApiResponse) -> "HourlyWeatherForecast":
-        return HourlyWeatherForecastFactory.create(open_meteo_response)
-
-    @staticmethod
-    def create_daily_weather_forecast(open_meteo_response: WeatherApiResponse) -> "DailyWeatherForecast":
-        return DailyWeatherForecastFactory.create(open_meteo_response)
-
-
-class CurrentWeatherFactory:
-    @staticmethod
-    def create(open_meteo_response: WeatherApiResponse) -> "CurrentWeatherForecast":
         current = open_meteo_response.Current()
         return CurrentWeatherForecast(
             # Process current data. The order of variables needs to be the same as requested.
@@ -295,9 +304,8 @@ class CurrentWeatherFactory:
             surface_pressure=current.Variables(8).Value(),
         )
 
-class HourlyWeatherForecastFactory:
     @staticmethod
-    def create(open_meteo_response: WeatherApiResponse) -> "HourlyWeatherForecast":
+    def create_hourly_weather_forecast(open_meteo_response: WeatherApiResponse) -> "HourlyWeatherForecast":
         hourly = open_meteo_response.Hourly()
         return HourlyWeatherForecast(
             # Process hourly data. The order of variables needs to be the same as requested.
@@ -313,9 +321,8 @@ class HourlyWeatherForecastFactory:
             relative_humidity_2m=hourly.Variables(2).ValuesAsNumpy(),
         )
 
-class DailyWeatherForecastFactory:
     @staticmethod
-    def create(open_meteo_response: WeatherApiResponse) -> "DailyWeatherForecast":
+    def create_daily_weather_forecast(open_meteo_response: WeatherApiResponse) -> "DailyWeatherForecast":
         daily = open_meteo_response.Daily()
         return DailyWeatherForecast(
             # Process daily data. The order of variables needs to be the same as requested.
@@ -336,6 +343,7 @@ class DailyWeatherForecastFactory:
             precipitation_hours=daily.Variables(7).ValuesAsNumpy(),
             precipitation_sum=daily.Variables(8).ValuesAsNumpy(),
         )
+
 
 if __name__ == "__main__":
     api = ApiSession()

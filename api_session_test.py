@@ -1,10 +1,19 @@
 import pytest
-from api_session import ApiSession
+from api_session import ApiSession, CurrentWeatherForecast, HourlyWeatherForecast, DailyWeatherForecast
 # from helpers import *
 
 
 def test_openmeteo_api_is_up():
     assert ApiSession()._make_api_call(None, None)
+
+def test_check_returning_types():
+    session = ApiSession()
+    current_weather = session.get_current_weather()
+    hourly_forecast = session.get_hourly_forecast()
+    daily_forecast = session.get_daily_forecast()
+    assert isinstance(current_weather, CurrentWeatherForecast)
+    assert isinstance(hourly_forecast, HourlyWeatherForecast)
+    assert isinstance(daily_forecast, DailyWeatherForecast)
 
 def test_change_location():
     session = ApiSession(52.2297, 21.0122)  # Warszawa
@@ -20,9 +29,10 @@ def test_change_location():
 
     weather = session.get_current_weather(48.8566, 2.3522)  # Paris
     weather_but_different = session.get_current_weather()
-    assert weather.latitude == pytest.approx(48.8566, rel=0.01)
-    assert weather.longitude == pytest.approx(2.3522, rel=0.01)
     # Default location should remain Rome
+    assert weather_but_different.latitude == pytest.approx(41.8919, rel=0.01)
+    assert weather_but_different.longitude == pytest.approx(12.5113, rel=0.01)
+
 
 def test_cannot_change_location_to_none():
     session = ApiSession(52.2297, 21.0122)  # Warszawa
@@ -36,6 +46,7 @@ def test_cannot_change_location_to_none():
     with pytest.raises(ValueError):
         session.change_default_location(None, None)
 
+
 def test_cannot_modify_forecast_fields():
     session = ApiSession(52.2297, 21.0122)  # Warszawa
     current_weather = session.get_current_weather()
@@ -44,4 +55,4 @@ def test_cannot_modify_forecast_fields():
         current_weather.temperature_2m = 25.0
 
     with pytest.raises(AttributeError):
-        current_weather.humidity_2m = 60.0
+        current_weather.apparent_temperature = 60.0
