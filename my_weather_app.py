@@ -6,13 +6,13 @@ from numpy import ndarray
 from api_session import (
     ApiSession,
     CurrentWeatherForecast,
-    IntervalicWeatherForecast,
     DailyWeatherForecast,
     HourlyWeatherForecast,
+    IntervalicWeatherForecast,
     WeatherForecast,
 )
-from geocoder import Geocoder, Location
-from helpers import datetime_to_labels, coords_to_str
+from geocoder import Geocoder
+from helpers import coords_to_str, datetime_to_labels
 
 
 # TODO: Create interfaces for future extension??
@@ -21,58 +21,66 @@ class MyWeatherApp:
     The main API. All the logic is listed here.
     """
     def __init__(self):
-        self.__current_location = Location(city_prompt="Warszawa")  # default
-        self.api = ApiSession(self.__current_location.coords[0], self.__current_location.coords[1])
-        self.geocoder = Geocoder()
+        self.__api = ApiSession()
+        self.__geocoder = Geocoder()
+        self.__current_coords = None
 
-    def get_current_weather(self, location: Location = None) -> CurrentWeatherForecast:
-        if location is None:
-            lat, lon = None, None
-        else:
-            lat, lon = location.to_coords()
-        self.__update_current_location(weather := self.api.get_current_weather(lat, lon))
+    # taking responsibility to convert from str to coords if necessary
+    # this works great with caching system of Geocoder() since we have only one instance of
+    # it taking care of every 'translation' during runtime
+    # earlier implementation was using higher order function to decrease repetetiveness of the code
+    # but was removed since the current one is more readable
+    @singledispatchmethod
+    def get_current_weather(self, lat: float = None, lon: float = None) -> CurrentWeatherForecast:
+        self.__update_current_coords(weather := self.__api.get_current_weather(lat, lon))
         return weather
 
-    def get_hourly_forecast(self, location: Location = None) -> HourlyWeatherForecast:
-        if location is None:
-            lat, lon = None, None
-        else:
-            lat, lon = location.to_coords()
-        self.__update_current_location(weather := self.api.get_hourly_forecast(lat, lon))
+    @get_current_weather.register(str)
+    def _(self, city_prompt: str) -> CurrentWeatherForecast:
+        return self.get_current_weather(*self.__geocoder.convert_city_name_to_coords(city_prompt))
+
+    @singledispatchmethod
+    def get_hourly_forecast(self, lat: float = None, lon: float = None) -> HourlyWeatherForecast:
+        self.__update_current_coords(weather := self.__api.get_hourly_forecast(lat, lon))
         return weather
 
-    def get_daily_forecast(self, location: Location = None) -> DailyWeatherForecast:
-        if location is None:
-            lat, lon = None, None
-        else:
-            lat, lon = location.to_coords()
-        self.__update_current_location(weather := self.api.get_daily_forecast(lat, lon))
+    @get_hourly_forecast.register(str)
+    def _(self, city_prompt: str) -> CurrentWeatherForecast:
+        return self.get_hourly_forecast(*self.__geocoder.convert_city_name_to_coords(city_prompt))
+
+    @singledispatchmethod
+    def get_daily_forecast(self, lat: float = None, lon: float = None) -> DailyWeatherForecast:
+        self.__update_current_coords(weather := self.__api.get_daily_forecast(lat, lon))
         return weather
 
-    @property   # user cannot change current location
-    def current_location(self):
-        return self.__current_location
+    @get_daily_forecast.register(str)
+    def _(self, city_prompt: str) -> CurrentWeatherForecast:
+        return self.get_daily_forecast(*self.__geocoder.convert_city_name_to_coords(city_prompt))
 
-    def __update_current_location(self, weather: WeatherForecast):
+    @property  # user cannot change current location
+    def current_coords(self):
+        return self.__current_coords
+
+    def __update_current_coords(self, weather: WeatherForecast):
         """
         Updates the location specified during last api call
         """
         if not weather:
             raise ValueError("No weather data to update location from.")
-        self.__current_location.coords = (weather.latitude, weather.longitude)
+        self.__current_coords = (weather.latitude, weather.longitude)
 
-    def draw_daily_plot(self, plt: plotext, city: str):
-        weather_forecast = self.get_daily_forecast(Location(city_prompt=city))
+    def draw_daily_plot(self, plt: plotext, city_prompt: str):
+        """city is expected to be a valid city_name f.e. `Warsaw, Poland`"""
+        weather_forecast = self.get_daily_forecast(city_prompt)
         self.__draw_plot(plt, weather_forecast)
 
-    def draw_hourly_plot(self, plt: plotext, city: str):
-        weather_forecast = self.get_hourly_forecast(Location(city_prompt=city))
+    def draw_hourly_plot(self, plt: plotext, city_prompt: str):
+        weather_forecast = self.get_hourly_forecast(city_prompt)
         self.__draw_plot(plt, weather_forecast)
 
     def __draw_plot(self, plt: plotext, weather_forecast: IntervalicWeatherForecast):
-        # loop through fields of weather_forecast and make plot for each of them??
-        series, labels = make_data_payload(weather_forecast, self.api.params)
-        location = self.geocoder.convert_coords_to_city_name(weather_forecast.latitude, weather_forecast.longitude)
+        series, labels = make_data_payload(weather_forecast, self.__api.params)
+        location = self.__geocoder.convert_coords_to_city_name(weather_forecast.latitude, weather_forecast.longitude)
 
         self.plotter = Plotter(plt)
         self.plotter.draw(weather_forecast, series, labels, title=location)
@@ -120,6 +128,7 @@ def make_data_payload(weather_forecast: DailyWeatherForecast, params: list[str])
         "apparent_temperature_max",
         "apparent_temperature_min"
     ]
+    # take all fields of weather_forecast and make plot for each of them
     series = obj_properties_from_strings(weather_forecast, params["daily"])
     return series, labels
 
