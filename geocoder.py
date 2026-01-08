@@ -8,55 +8,18 @@ logging.basicConfig(filename='geocoder.log', level=logging.INFO, filemode="w+")
 # from helpers import coords_to_str
 
 class Location:
-    def __init__(self, latitude: float = None, longitude: float = None, city_prompt: str = None):
-        if (latitude is None or longitude is None) and city_prompt is None:
-            raise ValueError("Either latitude and longitude or city_prompt must be provided.")
-        self.__lat = latitude if latitude else None
-        self.__lon = longitude if longitude else None
-        self.__city_name = city_prompt if city_prompt else None
-        self.geo = None
+    def __init__(self, latitude: float, longitude: float):
+        self.__lat = latitude
+        self.__lon = longitude
 
-    def __init_geo(self):
-        if self.geo is None:
-            self.geo = Geocoder()
-            logging.info("--------- Initialized Geocoder ---------")
-
-    @property
-    def city_name(self) -> str:
-        self.__init_geo()
-        if self.__city_name:
-            return self.__city_name
-        self.__city_name = self.geo.convert_coords_to_city_name(self.__lat, self.__lon)
-        return self.__city_name
-
-    @city_name.setter
-    def city_name(self, city_name: str):
-        self.__init_geo()
-        self.__city_name = city_name
-        self.__lat, self.__lon = self.geo.convert_city_name_to_coords(city_name)
-
-    @property
-    def coords(self) -> tuple[float, float]:
-        self.__init_geo()
-        if self.__lat and self.__lon:
-            return (self.__lat, self.__lon)
-        self.__lat, self.__lon = self.geo.convert_city_name_to_coords(self.__city_name)
-        return (self.__lat, self.__lon)
-
-    @coords.setter
-    def coords(self, coords: tuple[float, float]):
-        self.__init_geo()
-        self.__lat, self.__lon = coords
-        self.__city_name = self.geo.convert_coords_to_city_name(self.__lat, self.__lon)
+    def get_city_name(self) -> str:
+        return Geocoder().convert_coords_to_city_name(self.__lat, self.__lon)
 
     def to_coords(self) -> tuple[float, float]:
-        return (self.coords[0], self.coords[1])
+        return (self.__lat, self.__lon)
 
-    def print_info(self):
-        print(f"Coordinates: {self.__lat}°N {self.__lon}°E")
-        # print(f"Elevation: {self.elevation} m asl")
-        # print(f"Timezone difference to GMT+0: {self.timezone_diff_utc0}s")
-
+    def __str__(self):
+        return f"Location: {self.__lat}°N, {self.__lon}°E"
 
 class Geocoder:
     def __init__(self):
