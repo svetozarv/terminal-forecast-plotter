@@ -40,6 +40,8 @@ class ApiSession:
             latitude, longitude = cities[random_city]
         elif not isinstance(latitude, float) or not isinstance(longitude, float):  # coords provided, validate
             raise ValueError("Latitude and Longitude must be float values.")
+
+        logging.info(f"--------- Created ApiSession ---------")
         logging.info(f"Default city for API session: ({latitude}, {longitude})")
         self.change_default_location(latitude, longitude)
 
@@ -81,7 +83,7 @@ class ApiSession:
             ],
             "timezone": "auto",
         }
-        self.__last_api_response: WeatherApiResponse = None  # TODO
+        self.__last_api_response: WeatherApiResponse = None
         self.__last_api_response_time: int = None
         self.__num_of_api_calls = 0
 
