@@ -28,34 +28,44 @@ class MyWeatherApp:
     # taking responsibility to convert from str to coords if necessary
     # this works great with caching system of Geocoder() since we have only one instance of
     # it taking care of every 'translation' during runtime
-    # earlier implementation was using higher order function to decrease repetetiveness of the code
-    # but was removed since the current one is more readable
     @singledispatchmethod
-    def get_current_weather(self, lat: float = None, lon: float = None) -> CurrentWeatherForecast:
-        self.__update_current_coords(weather := self.__api.get_current_weather(lat, lon))
+    def __get_any_weather(self, get_func, lat: float = None, lon: float = None) -> WeatherForecast:
+        self.__update_current_coords(weather := get_func(lat, lon))
         return weather
 
-    @get_current_weather.register(str)
-    def _(self, city_prompt: str) -> CurrentWeatherForecast:
-        return self.get_current_weather(*self.__geocoder.convert_city_name_to_coords(city_prompt))
+    @__get_any_weather.register(str)
+    def _(self, get_func, city_prompt: str) -> WeatherForecast:
+        return self.__get_any_weather(get_func, *self.__geocoder.convert_city_name_to_coords(city_prompt))
 
-    @singledispatchmethod
-    def get_hourly_forecast(self, lat: float = None, lon: float = None) -> HourlyWeatherForecast:
-        self.__update_current_coords(weather := self.__api.get_hourly_forecast(lat, lon))
-        return weather
+    def get_current_weather(self, *args) -> CurrentWeatherForecast:
+        self.__validate_args(*args)
+        return self.__get_any_weather(self.__api.get_current_weather, *args)
 
-    @get_hourly_forecast.register(str)
-    def _(self, city_prompt: str) -> CurrentWeatherForecast:
-        return self.get_hourly_forecast(*self.__geocoder.convert_city_name_to_coords(city_prompt))
+    def get_hourly_forecast(self, *args) -> HourlyWeatherForecast:
+        self.__validate_args(*args)
+        return self.__get_any_weather(self.__api.get_hourly_forecast, *args)
 
-    @singledispatchmethod
-    def get_daily_forecast(self, lat: float = None, lon: float = None) -> DailyWeatherForecast:
-        self.__update_current_coords(weather := self.__api.get_daily_forecast(lat, lon))
-        return weather
+    def get_daily_forecast(self, *args) -> DailyWeatherForecast:
+        self.__validate_args(*args)
+        return self.__get_any_weather(self.__api.get_daily_forecast, *args)
 
-    @get_daily_forecast.register(str)
-    def _(self, city_prompt: str) -> CurrentWeatherForecast:
-        return self.get_daily_forecast(*self.__geocoder.convert_city_name_to_coords(city_prompt))
+    def __validate_args(self, *args):
+        """
+        Valid args:
+        - no args -> use current location
+        - (lat: float, lon: float)
+        - (city_name: str)
+        """
+        if len(args) == 0:
+            return
+        if len(args) == 1 and isinstance(args[0], str):
+            return
+        if len(args) == 2 and all(isinstance(arg, float) for arg in args):
+            return
+        raise ValueError(
+            "Invalid arguments provided to get weather. "
+            "Usage: get_weather(city_name: str) or get_weather(latitude: float, longitude: float)"
+        )
 
     @property  # user cannot change current location
     def current_coords(self):
