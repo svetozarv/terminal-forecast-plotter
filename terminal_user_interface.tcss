@@ -1,44 +1,22 @@
-Screen {
-        align: center middle;
-        # border: solid red;
-        /* content-align: center middle; */
-}
-
 ListView {
     width: 30;
     height: auto;
     margin: 2 2;
 }
 
-Label {
-    align: center middle;
-    text-align: center;
-    padding: 1 2;
+Button {
+    padding: 1;
 }
 
-
-Placeholder {
-        width: 40%;
-        /* border: solid red; */
-        height: 50%;
-}
-
-
-#alert_label {
-    color: red;
-    border: thick red;
-    width: auto;
-    height: auto;
-    align: center middle;
-}
-
-#plotext-plot {
-        margin: 1;
-}
-
+# --------- AlertsScreen ---------
 #alerts_data_table {
     align: center middle;
     width: auto;
+}
+
+# --------- AskForCityScreen ---------
+#city_input {
+    width: 40%;
 }
 
 .help_label {
@@ -47,15 +25,26 @@ Placeholder {
     margin: 1;
 }
 
-#city_input {
-        width: 40%;
+# --------- PlotScreen ---------
+#plotext-plot {
+    margin: 1;
 }
 
-AskforAlert {
+# --------- MainScreen ---------
+#alert_has_beeb_triggered_label {
+    color: red;
+    border: thick red;
+    width: auto;
+    height: auto;
     align: center middle;
 }
 
-#askforalert_dialog {
+# --------- AskAlertDetailsScreen ---------
+#name {
+    column-span: 2;
+}
+
+#ask_for_alert_dialog {
     column-span: 2;
     height: 1fr;
     width: 1fr;
@@ -63,13 +52,39 @@ AskforAlert {
     align: center middle;
 }
 
-#dialog {
+#ask_for_alert_grid {
+    # number of columns and rows in a grid layout.
+    # The number of rows can be left unspecified and it will be computed automatically
     grid-size: 2;
-    grid-gutter: 1 2;
-    grid-rows: 1fr 3;
-    padding: 0 1;
+
+    # the space between adjacent cells in the grid
+    # grid-gutter: 1 1;
+
+    # define the height of the rows of the grid
+    grid-rows: 1fr;
+
+    # padding: 0 1;
     width: 80;
-    height: 15;
+    height: 60%;
     border: thick $background 80%;
     background: $surface;
+}
+
+# --------- General/mutual ---------
+Label {
+    align: center middle;
+    text-align: center;
+    padding: 1 2;
+}
+
+Screen {
+    align: center middle;
+    # border: solid red;
+    /* content-align: center middle; */
+}
+
+Placeholder {
+    width: 40%;
+    /* border: solid red; */
+    height: 50%;
 }
