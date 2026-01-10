@@ -1,6 +1,10 @@
-from peewee import SqliteDatabase, Model, CharField, FloatField 
+from peewee import CharField, FloatField, Model, SqliteDatabase
 
 DATABASE_FILENAME = 'user_settings.db'
+MIN_TEMP = -100  # in *C
+MAX_TEMP = 100   # there are probably won't be higher temps (at least on Earth)
+MIN_WINDSPEED = 0.0  # in m/s
+MAX_WINDSPEED = 343.0
 db = SqliteDatabase(DATABASE_FILENAME)
 
 
@@ -11,11 +15,15 @@ class BaseModel(Model):
 
 
 class Alert(BaseModel):  # A database table
-    city_name = CharField()  # or Location object?      # column on the table
-    min_temp = FloatField(default=-273.15)
-    max_temp = FloatField(default=1000.0)
-    # min_wind_speed = FloatField(default=0.0)
-    # max_wind_speed = FloatField(default=100.0)
+    city_name = CharField()  # column on the table
+    lat = FloatField()
+    lon = FloatField()
+    name = CharField(default="-", max_length=30)
+    severity = CharField(default="INFO", max_length=20)   # either INFO, WARNING, DANGER or CRITICAL
+    min_temp = FloatField(default=MIN_TEMP)
+    max_temp = FloatField(default=MAX_TEMP)
+    min_wind_speed = FloatField(default=MIN_WINDSPEED)
+    max_wind_speed = FloatField(default=MAX_WINDSPEED)
     # min_precipitation = FloatField(default=0.0)
     # max_precipitation = FloatField(default=1000.0)
     # min_humidity = FloatField(default=0.0)
