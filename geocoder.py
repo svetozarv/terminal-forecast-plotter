@@ -3,23 +3,9 @@ import logging
 from geopy.exc import GeopyError
 from geopy.geocoders import Nominatim
 
-logging.getLogger(__name__)
+logging.getLogger("geocoder")
 logging.basicConfig(filename='geocoder.log', level=logging.INFO, filemode="w+")
 # from helpers import coords_to_str
-
-class Location:
-    def __init__(self, latitude: float, longitude: float):
-        self.__lat = latitude
-        self.__lon = longitude
-
-    def get_city_name(self) -> str:
-        return Geocoder().convert_coords_to_city_name(self.__lat, self.__lon)
-
-    def to_coords(self) -> tuple[float, float]:
-        return (self.__lat, self.__lon)
-
-    def __str__(self):
-        return f"Location: {self.__lat}°N, {self.__lon}°E"
 
 class Geocoder:
     def __init__(self):
