@@ -38,12 +38,13 @@ class Geocoder:
         """
         Example: `52.2297, 21.0122` -> `Warszawa, Polska`
         """
+        # quick lookup in cache
         if self._is_in_cache(coords=(latitude, longitude)):
             logging.info(f"Cache hit for coords: [{(latitude, longitude)}] -> [{self._cache[(latitude, longitude)]}]")
             return self._get_from_cache(coords=(latitude, longitude))
 
         try:
-            location = self.geolocator.reverse(f"{latitude}, {longitude}", language="en")
+            location = self.geolocator.reverse(f"{latitude}, {longitude}", language="en", exactly_one=True)
             display_name = location.raw.get("display_name", f"{latitude}, {longitude}")
             logging.info(f"Geocoder made call: {(latitude, longitude)} -> {display_name}")
             address: dict = location.raw.get("address", None)
@@ -61,6 +62,10 @@ class Geocoder:
         return display_name
 
     def convert_city_name_to_coords(self, city_name: str, country_name: str = None) -> tuple[float, float] | None:
+        """
+        Example: `warszawa` -> `52.2297, 21.0122`
+        """
+        # quick lookup in cache
         if self._is_in_cache(city_name=city_name):
             logging.info(f"Cache hit for coords: [{city_name}] -> [{self._cache_reverse[city_name]}]")
             return self._get_from_cache(city_name=city_name)
