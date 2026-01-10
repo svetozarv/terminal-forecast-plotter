@@ -1,3 +1,29 @@
+# --------- General/mutual ---------
+Label {
+    content-align: center middle;
+    text-align: center;
+    align: center middle;
+    padding: 1 2;
+    # width: auto;
+    border: wide white;
+}
+
+VerticalGroup {
+    content-align: center middle;
+}
+
+Screen {
+    align: center middle;
+    content-align: center middle;
+    # border: solid red;
+}
+
+Placeholder {
+    width: 40%;
+    /* border: solid red; */
+    height: 50%;
+}
+
 ListView {
     width: 30;
     height: auto;
@@ -5,6 +31,7 @@ ListView {
 }
 
 Button {
+    align: center middle;
     padding: 1;
 }
 
@@ -31,12 +58,29 @@ Button {
 }
 
 # --------- MainScreen ---------
-#alert_has_beeb_triggered_label {
+#alert_has_been_triggered_label {
     color: red;
-    border: thick red;
-    width: auto;
+    border: red;
+    # width: auto;
     height: auto;
-    align: center middle;
+}
+
+.alert_labels {
+    color: red;
+    padding: 0;
+}
+
+.info_label {
+    color: dodgerblue;
+}
+.warning_label {
+    color: yellow;
+}
+.danger_label {
+    color: red;
+}
+.critical_label {
+    color: violet;
 }
 
 # --------- AskAlertDetailsScreen ---------
@@ -68,23 +112,4 @@ Button {
     height: 60%;
     border: thick $background 80%;
     background: $surface;
-}
-
-# --------- General/mutual ---------
-Label {
-    align: center middle;
-    text-align: center;
-    padding: 1 2;
-}
-
-Screen {
-    align: center middle;
-    # border: solid red;
-    /* content-align: center middle; */
-}
-
-Placeholder {
-    width: 40%;
-    /* border: solid red; */
-    height: 50%;
 }

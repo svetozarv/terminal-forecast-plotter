@@ -7,7 +7,7 @@ import peewee as pw
 from textual import on, work
 from textual.app import App, ComposeResult
 from textual.binding import Binding
-from textual.containers import Center, Grid, HorizontalGroup, VerticalScroll
+from textual.containers import Center, Container, Grid, HorizontalGroup, VerticalScroll
 from textual.events import ScreenResume, ScreenSuspend
 from textual.screen import ModalScreen, Screen
 from textual.widgets import (
@@ -39,18 +39,18 @@ from my_weather_app import MyWeatherApp
 class MainScreen(Screen):
     def compose(self) -> ComposeResult:
         # TODO: Welcome label
-        yield Placeholder("MainScreen")
-        yield Label("Alert has been triggered!\n", id="alert_has_beeb_triggered_label")
-        yield Label("", id="alerts_label")
+        # yield Placeholder("MainScreen")
+        with Center():
+            yield Label("Alert has been triggered!\n", id="alert_has_been_triggered_label")
         yield Footer()
 
     @on(ScreenResume)
     def check_alert_on_resume(self):
-        self.screen.query_one("#alerts_label", Label).update("")
+        self.screen.remove_children(".alert_labels")
         self.check_alerts()
 
     def on_mount(self):
-        self.screen.query_one("#alert_triggered_label", Label).display = False
+        self.screen.query_one("#alert_has_been_triggered_label", Label).display = False
         self.check_alerts()
 
     def check_alerts(self):
@@ -60,16 +60,45 @@ class MainScreen(Screen):
     def check_alert_for_city(self, alert: pw.BaseModelSelect):
         current_weather = app.my_weather_app.get_current_weather((alert.lat, alert.lon))
         current_temp = current_weather.temperature_2m
-        alerts_label = self.screen.query_one("#alerts_label", Label)
-        alert_triggered_label = self.screen.query_one("#alert_triggered_label", Label)
-        label_text = alerts_label.content
+        current_wind_speed = current_weather.wind_speed_10m
+
         if current_temp < alert.min_temp:
-            label_text += f"The temperature for {alert.city_name} has dropped below {alert.min_temp}°C\n"
-            alert_triggered_label.display = True
+            self.add_warning_label(
+                f"The temperature for {alert.city_name} has dropped below {alert.min_temp}°C\n",
+                alert.severity,
+            )
         if current_temp > alert.max_temp:
-            alert_triggered_label.display = True
-            label_text += f"The temperature for {alert.city_name} has raised above {alert.max_temp}°C\n"
-        alerts_label.update(label_text)
+            self.add_warning_label(
+                f"The temperature for {alert.city_name} has raised above {alert.max_temp}°C\n",
+                alert.severity,
+            )
+
+        if current_wind_speed > alert.max_wind_speed:
+            self.add_warning_label(
+                f"The wind speed for {alert.city_name} has raised above {alert.max_wind_speed} m/s\n",
+                alert.severity,
+            )
+        if current_wind_speed < alert.min_wind_speed:
+            self.add_warning_label(
+                f"The wind speed for {alert.city_name} has dropped below {alert.min_wind_speed} m/s\n",
+                alert.severity,
+            )
+
+    def add_warning_label(self, text: str, severity: str):
+        alert_triggered_label = self.screen.query_one("#alert_has_been_triggered_label", Label)
+        alert_triggered_label.display = True
+
+        css_classes = "alert_labels "
+        if severity == "INFO":
+            css_classes += "info_label"
+        if severity == "WARNING":
+            css_classes += "warning_label"
+        if severity == "DANGER":
+            css_classes += "danger_label"
+        if severity == "CRITICAL":
+            css_classes += "critical_label"
+
+        self.screen.mount(Label(text, classes=css_classes))
 
 
 class AskForCityScreen(Screen):
@@ -162,7 +191,6 @@ class AskAlertDetailsScreen(ModalScreen):
         self.add_alert()
         app.dialog_popup_text = "Saved!"
         app.switch_screen("dialog_popup")
-        app.pop_screen()
 
 
 class PlotScreen(Screen):
