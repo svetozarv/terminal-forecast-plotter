@@ -10,37 +10,37 @@ logging.basicConfig(filename='geocoder.log', level=logging.INFO, filemode="w+")
 class Geocoder:
     def __init__(self):
         self.geolocator = Nominatim(user_agent="my_geopy_app123")
-        self.__cache = {}           # coords -> city_name
-        self.__cache_reverse = {}   # city_name -> coords
+        self._cache = {}           # coords -> city_name
+        self._cache_reverse = {}   # city_name -> coords
         # might as well be a sseparate class
 
-    def __is_in_cache(self, city_name: str = None, coords: tuple[float, float] = None) -> bool:
+    def _is_in_cache(self, city_name: str = None, coords: tuple[float, float] = None) -> bool:
         """Better use keywords when calling this method."""
-        if coords and coords in self.__cache:
+        if coords and coords in self._cache:
             return True
-        if city_name and city_name in self.__cache_reverse:
+        if city_name and city_name in self._cache_reverse:
             return True
         return False
 
-    def __save_to_cache(self, city_name: str = None, coords: tuple[float, float] = None) -> None:
+    def _save_to_cache(self, city_name: str = None, coords: tuple[float, float] = None) -> None:
         if city_name is None or coords is None:
             raise ValueError("Both city_name and coords must be provided to save to cache.")
-        self.__cache[coords] = city_name
-        self.__cache_reverse[city_name] = coords
+        self._cache[coords] = city_name
+        self._cache_reverse[city_name] = coords
 
-    def __get_from_cache(self, city_name: str = None, coords: tuple[float, float] = None) -> str | tuple[float, float]:
+    def _get_from_cache(self, city_name: str = None, coords: tuple[float, float] = None) -> str | tuple[float, float]:
         if city_name:
-            return self.__cache_reverse[city_name]
+            return self._cache_reverse[city_name]
         if coords:
-            return self.__cache[coords]
+            return self._cache[coords]
 
     def convert_coords_to_city_name(self, latitude: float, longitude: float) -> str | None:
         """
         Example: `52.2297, 21.0122` -> `Warszawa, Polska`
         """
-        if self.__is_in_cache(coords=(latitude, longitude)):
-            logging.info(f"Cache hit for coords: [{(latitude, longitude)}] -> [{self.__cache[(latitude, longitude)]}]")
-            return self.__get_from_cache(coords=(latitude, longitude))
+        if self._is_in_cache(coords=(latitude, longitude)):
+            logging.info(f"Cache hit for coords: [{(latitude, longitude)}] -> [{self._cache[(latitude, longitude)]}]")
+            return self._get_from_cache(coords=(latitude, longitude))
 
         try:
             location = self.geolocator.reverse(f"{latitude}, {longitude}", language="en")
@@ -57,13 +57,13 @@ class Geocoder:
             if city_name and country_name
             else display_name or f"{latitude}, {longitude}"
         )
-        self.__save_to_cache(display_name, coords := (latitude, longitude))
+        self._save_to_cache(display_name, coords := (latitude, longitude))
         return display_name
 
     def convert_city_name_to_coords(self, city_name: str, country_name: str = None) -> tuple[float, float] | None:
-        if self.__is_in_cache(city_name=city_name):
-            logging.info(f"Cache hit for coords: [{city_name}] -> [{self.__cache_reverse[city_name]}]")
-            return self.__get_from_cache(city_name=city_name)
+        if self._is_in_cache(city_name=city_name):
+            logging.info(f"Cache hit for coords: [{city_name}] -> [{self._cache_reverse[city_name]}]")
+            return self._get_from_cache(city_name=city_name)
 
         try:
             location = self.geolocator.geocode(f"{city_name}, {country_name if country_name else ''}", language="en")
@@ -72,7 +72,7 @@ class Geocoder:
             return None
         coords = (float(location.raw["lat"]), float(location.raw["lon"]))
         logging.info(f"Geocoder made call: {city_name} -> {coords}")
-        self.__save_to_cache(city_name, coords)
+        self._save_to_cache(city_name, coords)
         return coords
 
 
@@ -85,10 +85,10 @@ if __name__ == "__main__":
 
     geo = Geocoder()
     fizz = geo.convert_city_name_to_coords("Warszawa", "Polska")
-    fizz = geo.convert_city_name_to_coords("Warszawa", "Polska")
+    fizz = geo.convert_city_name_to_coords("Warszawa", "Polska")  # cache hit
     fizz = geo.convert_city_name_to_coords("Warsaw", "Poland")
     print(f"Coodninates: {fizz}")
     buzz = geo.convert_city_name_to_coords("Zakopane")
     buzz = geo.convert_city_name_to_coords("zakopane")
-    buzz = geo.convert_city_name_to_coords("Zakopane")
+    buzz = geo.convert_city_name_to_coords("Zakopane")  # cache hit
     print(f"Coodninates: {buzz}")

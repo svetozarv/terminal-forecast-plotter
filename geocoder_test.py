@@ -1,42 +1,19 @@
 import pytest
-
-from geocoder import Geocoder, Location
-
-
-def test_location_internal_state_stability():
-    loc = Location(city_prompt="Warsaw, Poland")
-    loc.coords = (41.8919, 12.5113) # Rome, Italy
-    assert loc.city_name == "Rome, Italy"
-
-    loc.city_name = "Los Angeles, USA"
-    lat, lon = loc.coords
-    assert lat == pytest.approx(34.0522, rel=0.0001)
-    assert lon == pytest.approx(-118.2437, rel=0.0001)
+from geocoder import Geocoder
 
 
-def test_location_cache():
+def test_geo_cache():
     geo = Geocoder()
-    loc1 = Location(city_prompt="Warsaw, Poland")
-    geo.fill_location_coords(loc1)
-    assert geo.is_in_cache(loc1.city_name) is True
-    assert loc1.coords[0] == pytest.approx(52.2297, rel=0.01)
-    assert loc1.coords[1] == pytest.approx(21.0122, rel=0.01)
+    coords = geo.convert_city_name_to_coords("Warsaw, Poland")
+    assert geo._is_in_cache("Warsaw, Poland") is True
+    assert geo._is_in_cache("Warszawa") is False
+    assert geo._is_in_cache("warsaw, poland") is False
+    assert coords[0] == pytest.approx(52.2297, rel=0.01)
+    assert coords[1] == pytest.approx(21.0122, rel=0.01)
 
-    loc2 = Location(latitude=52.2297, longitude=21.0122)
-    geo.fill_location_city_name(loc2)
-    assert geo.is_in_cache(coords=loc2.coords) is True
-    assert loc2.city_name == "Warsaw, Poland"
-
-def test_location_to_coords():
-    loc = Location(city_prompt="Warsaw, Poland")
-    lat, lon = loc.to_coords()
-    assert lat == pytest.approx(52.2297, rel=0.01)
-    assert lon == pytest.approx(21.0122, rel=0.01)
-
-    loc = Location(latitude=34.0522, longitude=-118.2437)
-    lat, lon = loc.to_coords()
-    assert lat == pytest.approx(34.0522, rel=0.0001)
-    assert lon == pytest.approx(-118.2437, rel=0.0001)
+    city_name = geo.convert_coords_to_city_name(latitude=52.2297, longitude=21.0122)
+    assert geo._is_in_cache(city_name=city_name) is True
+    assert city_name == "Warsaw, Poland"
 
 def test_coords_to_city_name():
     geo = Geocoder()
@@ -60,4 +37,4 @@ def test_city_name_to_coords():
     assert coords[1] == pytest.approx(21.0122, rel=0.01)
 
     coords = geo.convert_city_name_to_coords("sdffffsdfsda")
-    assert coords == (52.2297, 21.0122)     # the test is not consistent
+    assert coords is None
