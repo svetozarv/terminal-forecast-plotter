@@ -2,18 +2,11 @@ import logging
 from typing import Any
 
 import peewee as pw
-from textual import on, work
+from textual import on
 from textual.app import App, ComposeResult
 from textual.binding import Binding
-from textual.containers import (
-    Center,
-    Container,
-    Grid,
-    Horizontal,
-    HorizontalGroup,
-    VerticalScroll,
-)
-from textual.events import ScreenResume, ScreenSuspend
+from textual.containers import Center, Grid, Horizontal, VerticalScroll
+from textual.events import ScreenResume
 from textual.screen import ModalScreen, Screen
 from textual.widgets import (
     Button,
@@ -24,9 +17,6 @@ from textual.widgets import (
     Label,
     ListItem,
     ListView,
-    LoadingIndicator,
-    Placeholder,
-    Pretty,
 )
 from textual_plotext import PlotextPlot
 
@@ -45,6 +35,7 @@ logging.getLogger("terminal_user_interface")
 logging.basicConfig(filename='terminal_user_interface.log', level=logging.INFO, filemode="w+")
 
 
+# TODO: - split screens into separate files
 class MainScreen(Screen):
     main_help_label = "Hi!\nWelcome to terminal_forecast_plotter!\n" + \
         "Start by pressing 'w' and entering a city.\nAlert warnings will appear on this screen."
@@ -127,8 +118,10 @@ class PlotScreen(Screen):
         ("t", "toggle_precision_mode", "Toggle daily/hourly"),
         ("c", "add_city_to_plot", "Compare to city"),
         ("a", "ask_for_details", "Add alert"),
-        ("s", "save_to_favourties", "Save to favourites"),
+        ("s", "save_to_favourites", "Save to favourites"),
     ]
+    displaying_hourly = True
+    displaying_daily = False
 
     def compose(self) -> ComposeResult:
         yield PlotextPlot(id="plotext-plot")
@@ -137,10 +130,13 @@ class PlotScreen(Screen):
     @on(ScreenResume)
     def on_mount(self):
         if app.asked_for_comparable_city:
-            self.draw_hourly(clear=False)
-        else:
-            self.draw_hourly()
-        app.refresh_bindings()
+            if self.displaying_hourly:
+                self.draw_hourly(clear=False)
+            else:
+                app.display_dialog("Comparing is only supported for hourly mode.")
+                self.draw_hourly()
+            return
+        self.draw_hourly()
 
     def draw_hourly(self, clear=True):
         plt = self.query_one(PlotextPlot).plt
@@ -161,6 +157,7 @@ class PlotScreen(Screen):
         self.displaying_hourly = False
 
     def action_add_city_to_plot(self):
+        """Experimental feature. Needs improvement but works."""
         app.asked_for_comparable_city = True
         app.ask_city_label = "What city would you like to compare the forecast to?"
         app.push_screen("ask_for_city")
@@ -169,7 +166,7 @@ class PlotScreen(Screen):
         """Handles keybinding."""
         app.push_screen("ask_alert_details")
 
-    def action_save_to_favourties(self):
+    def action_save_to_favourites(self):
         """Handles keybinding."""
         if Favourite.get_or_none(city_name=app.my_weather_app.current_city_name()):
             app.display_dialog("The city is already in your favourites.")
@@ -229,7 +226,7 @@ class FavouritesScreen(Screen):
     @on(ListView.Selected)
     def get_plot_for_city(self):
         highlighted_index = self.screen.query_one(ListView).index
-        app.city_prompt = Favourite.select(Favourite.city_name)[highlighted_index].city_name    # TODO: bottleneck to remove
+        app.city_prompt = Favourite.select(Favourite.city_name)[highlighted_index].city_name  # TODO: optimize
         app.switch_screen("plot")
 
 
@@ -320,23 +317,23 @@ class AskForCityModal(ModalScreen):
             yield Label("Press 'esc' to exit.", id="press_esc")
         yield Footer()
 
+    @on(ScreenResume)
     def on_mount(self):
         self.query_one(".help_label", Label).update(app.ask_city_label)
 
     def on_input_submitted(self):
         city_prompt = self.get_city_prompt()
         if not self.validate_city_name(city_prompt):
-            app.display_dialog("Sorry, we couldn't retrive data for the provided location.")
+            app.display_dialog("Sorry, we couldn't retrieve data for the provided location.")
             return
         app.pop_screen()
         app.switch_screen("plot")
 
     def get_city_prompt(self) -> str:
-        # TODO: add validataion, results first, then show if results not None else display msg
         app.city_prompt = self.query_one(Input).value
         return app.city_prompt
 
-    def validate_city_name(self, city_prompt: str) -> bool: #TODO
+    def validate_city_name(self, city_prompt: str) -> bool:
         return bool(app.my_weather_app.resolve_location(location=city_prompt))
 
 
@@ -406,7 +403,7 @@ class AskAlertDetailsModal(ModalScreen):
         def after_severity_input(*args):
             """Called when AskAlertSeverity is dismissed."""
             self.add_alert()
-            # cannot display_dialog() beacuse we don't want to return to AskAlertDetails
+            # cannot display_dialog() because we don't want to return to AskAlertDetails
             app.dialog_popup_text = "Saved!"
             app.switch_screen("dialog_popup")
 
@@ -447,18 +444,8 @@ class DialogPopupModal(ModalScreen):
         app.pop_screen()
 
 
+# TODO: - add asyncio
 class TerminalUserInterface(App):
-    my_weather_app = MyWeatherApp()
-    db = pw.SqliteDatabase(DATABASE_FILENAME)
-    db.connect()
-    city_prompt = None  # to store the city name entered by user between screens
-    dialog_popup_text = None
-    alert_severity_button_label = None
-    ask_city_label = "Hi! In this place you can check the weather in\n" + \
-            "any place in the world by typing it in\n " + \
-            "the field below."
-    asked_for_comparable_city = False
-
     CSS_PATH = "terminal_user_interface.tcss"
     BINDINGS = [
         ("w", "push_screen('ask_for_city')", "Check weather"),
@@ -478,6 +465,22 @@ class TerminalUserInterface(App):
         "ask_alert_severity": AskAlertSeverityModal,
         "dialog_popup": DialogPopupModal,
     }
+    # TODO: remove spaghetti
+    city_prompt = None  # to store the city name entered by user between screens
+    dialog_popup_text = None
+    alert_severity_button_label = None
+    ask_city_label = (
+        "Hi! In this place you can check the weather in\n"
+        + "any place in the world by typing it in\n "
+        + "the field below."
+    )
+    asked_for_comparable_city = False
+
+    def __init__(self, weather_service=None, db: pw.SqliteDatabase = None, **kwargs):
+        super().__init__(**kwargs)
+        self.my_weather_app = weather_service or MyWeatherApp()
+        self.db = db or pw.SqliteDatabase(DATABASE_FILENAME)
+        self.db.connect()
 
     def compose(self) -> ComposeResult:
         """Called to add widgets to the app."""
@@ -485,7 +488,6 @@ class TerminalUserInterface(App):
         yield Footer()
 
     def on_mount(self) -> None:
-        # self.install_screen("plot")
         # self.theme = "nord"
         self.push_screen("main")
 
@@ -538,7 +540,7 @@ class TerminalUserInterface(App):
 if __name__ == "__main__":
     app = TerminalUserInterface()
 
-    # In case of a crash, enshure the connection is closed
+    # In case of a crash, ensure the connection is closed
     try:
         app.run()
     finally:
