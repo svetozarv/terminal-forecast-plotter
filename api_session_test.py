@@ -1,6 +1,80 @@
+from unittest.mock import MagicMock, patch
+
 import pytest
-from api_session import ApiSession, CurrentWeatherForecast, HourlyWeatherForecast, DailyWeatherForecast
-# from helpers import *
+
+from api_session import (
+    ApiSession,
+    CurrentWeatherForecast,
+    DailyWeatherForecast,
+    HourlyWeatherForecast,
+    WeatherForecastFactory,
+)
+# TODO: separate integration and unit (logic) tests
+
+
+# mock api (variables -> Current -> response)
+@pytest.fixture
+def mock_response():
+    # mock the specific variable values
+    mock_var_temp = MagicMock()
+    mock_var_temp.Value.return_value = 25.5
+    mock_var_humidity = MagicMock()
+    mock_var_humidity.Value.return_value = 60.0
+
+    # mock the `current_weather` object holding these variables
+    mock_current = MagicMock()
+
+    # mock the .Variables() calls
+    # matching the index order is mandatory
+    def variable_side_effect(index):
+        if index == 0: return mock_var_temp
+        if index == 1: return mock_var_humidity
+        return MagicMock(Value=lambda: 0.0)  # default for other values (don't care)
+
+    mock_current.Variables.side_effect = variable_side_effect
+    mock_current.Time.return_value = "2026-01-11"
+
+    # mock the top-level Response object
+    mock_response = MagicMock()
+    mock_response.Current.return_value = mock_current
+    mock_response.Latitude.return_value = 52.0
+    mock_response.Longitude.return_value = 21.0
+    mock_response.Elevation.return_value = 100.0
+    mock_response.UtcOffsetSeconds.return_value = 3600
+    return mock_response
+
+
+@patch("api_session.openmeteo_requests.Client")
+def test_get_current_weather_parsing(MockClient, mock_response):
+    # is data parsed correctlyfrom the API response?
+    mock_instance = MockClient.return_value
+    mock_instance.weather_api.return_value = [mock_response]
+
+    session = ApiSession(52.0, 21.0)
+    weather = session.get_current_weather()
+
+    assert weather.temperature_2m == 25.5
+    assert weather.relative_humidity_2m == 60.0
+    assert weather.latitude == 52.0
+    mock_instance.weather_api.assert_called_once()
+
+
+@patch("api_session.openmeteo_requests.Client")
+def test_caching_mechanism(MockClient, mock_response):
+    # calling the API twice for the same location -> one API call
+    mock_instance = MockClient.return_value
+    mock_instance.weather_api.return_value = [mock_response]
+
+    session = ApiSession(52.0, 21.0)
+
+    session.get_current_weather()   # call
+    assert mock_instance.weather_api.call_count == 1
+
+    session.get_current_weather()
+    assert mock_instance.weather_api.call_count == 1  # cache hit
+
+    session.get_current_weather(40.0, 10.0)
+    assert mock_instance.weather_api.call_count == 2  # call
 
 
 def test_openmeteo_api_is_up():
