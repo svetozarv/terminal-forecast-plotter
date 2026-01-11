@@ -19,7 +19,7 @@ logging.basicConfig(filename='my_weather_app.log', level=logging.INFO, filemode=
 
 class MyWeatherApp:
     """
-    The main API. Provides unified interface to both Geocoder() and ApiSession() and also to Plotter().
+    The main API. Provides unified interface to ApiSession(), Geocoder() and Plotter() .
     """
     def __init__(self):
         self.__api = ApiSession()
@@ -59,14 +59,6 @@ class MyWeatherApp:
         self.plotter = plotter.Plotter(plt)
         self.plotter.draw(weather_forecast, series, labels, title=location, clear=clear)
 
-    # taking responsibility to convert from str to coords if necessary
-    # this works great with caching system of Geocoder() since we have only one instance of
-    # it taking care of every 'translation' during runtime
-    def __fetch_weather(self, get_func, lat: float, lon: float) -> WeatherForecast:
-        """Lat & lon can be None, in that case a random city will be picked."""
-        self.__update_current_coords(weather := get_func(lat, lon))
-        return weather
-
     def resolve_location(self, location: str | tuple[float, float]) -> tuple[float, float] | tuple[None, None] | None:
         """Convert city_name to coords if necessary"""
         if not location:  # pick a random city
@@ -74,6 +66,14 @@ class MyWeatherApp:
         if isinstance(location, str):
             return self.__geocoder.convert_city_name_to_coords(location)
         return location
+
+    # taking responsibility to convert from str to coords if necessary
+    # this works great with caching system of Geocoder() since we have only one instance of
+    # it taking care of every 'translation' during runtime
+    def __fetch_weather(self, get_func, lat: float, lon: float) -> WeatherForecast:
+        """Lat & lon can be None, in that case a random city will be picked."""
+        self.__update_current_coords(weather := get_func(lat, lon))
+        return weather
 
     def __update_current_coords(self, weather: WeatherForecast):
         """Updates the coordinates specified during last api call."""
