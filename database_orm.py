@@ -13,9 +13,11 @@ class BaseModel(Model):
     class Meta:
         database = db    # This model uses the "user_settings.db" database. Mandatory attribute.
 
-
-class Alert(BaseModel):  # A database table
+class Favourite(BaseModel):  # A database table
     city_name = CharField()  # column on the table
+
+class Alert(BaseModel):
+    city_name = CharField()
     lat = FloatField()
     lon = FloatField()
     name = CharField(default="-", max_length=30)
@@ -37,7 +39,7 @@ class Alert(BaseModel):  # A database table
 def initialize_db(db_filename):
     def create_tables():
         with db:
-            db.create_tables([Alert])
+            db.create_tables([Alert, Favourite])
 
     try:
         with open(db_filename) as file:
