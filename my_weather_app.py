@@ -1,9 +1,8 @@
 import logging
-from functools import singledispatch, singledispatchmethod
 
 import plotext
-from numpy import ndarray
 
+import plotter
 from api_session import (
     ApiSession,
     CurrentWeatherForecast,
@@ -13,7 +12,6 @@ from api_session import (
     WeatherForecast,
 )
 from geocoder import Geocoder
-from helpers import datetime_to_labels
 
 logging.getLogger("my_weather_app")
 logging.basicConfig(filename='my_weather_app.log', level=logging.INFO, filemode="w+")
@@ -56,9 +54,9 @@ class MyWeatherApp:
         self._draw_plot(plt, weather_forecast, clear)
 
     def _draw_plot(self, plt: plotext, weather_forecast: IntervalicWeatherForecast, clear=True):
-        series, labels = make_data_payload(weather_forecast, self.__api.params)
+        series, labels = plotter.make_data_payload(weather_forecast, self.__api.params)
         location = self.__geocoder.convert_coords_to_city_name(weather_forecast.latitude, weather_forecast.longitude)
-        self.plotter = Plotter(plt)
+        self.plotter = plotter.Plotter(plt)
         self.plotter.draw(weather_forecast, series, labels, title=location, clear=clear)
 
     # taking responsibility to convert from str to coords if necessary
@@ -82,74 +80,6 @@ class MyWeatherApp:
         if not weather:
             raise ValueError("No weather data to update location from.")
         self.__current_coords = (weather.latitude, weather.longitude)
-
-
-class Plotter:
-    def __init__(self, plt: plotext):
-        # plt.clear_terminal()
-        # plt.theme("dark")
-        self.plt = plt
-        self.y_label = "°C"
-        plt.xlabel("Time")
-        plt.ylabel(self.y_label)
-
-    def draw(
-        self,
-        weather_forecast: IntervalicWeatherForecast,
-        series_of_data_measurements: list[ndarray],
-        labels: list[str],
-        title: str,
-        clear=True
-    ):
-        """
-        Draw a few plots on a sigle canvas (for instance: both temp and humidity on a single plot).
-        len(series) and len(labels) should be equal.
-        """
-        plt = self.plt
-        if clear:
-            plt.clear_data()
-            plt.clear_figure()
-        plt.title(title)
-        for single_series, label in zip(series_of_data_measurements, labels):
-            x_labels = datetime_to_labels(weather_forecast.time, weather_forecast.time_end, weather_forecast.interval)
-            x_axis_indices = range(len(single_series))
-            plt.plot(x_axis_indices, single_series, marker="braille", label=label)
-            plt.xticks(ticks=x_axis_indices, labels=x_labels)
-        plt.show()
-
-
-# adapter for plotter
-@singledispatch
-def make_data_payload(weather_forecast: DailyWeatherForecast, params: list[str]) -> list[ndarray]:
-    # labels = params["daily"]
-    labels = [  # edit the labels list to select the displayed data among requested
-        "temperature_2m_max",
-        "temperature_2m_min",
-        "apparent_temperature_max",
-        "apparent_temperature_min"
-    ]
-    # take all fields of weather_forecast and make plot for each of them
-    series = obj_properties_from_strings(weather_forecast, params["daily"])
-    return series, labels
-
-@make_data_payload.register(HourlyWeatherForecast)
-def _(weather_forecast: HourlyWeatherForecast, params: list[str]) -> list[ndarray]:
-    # labels = params["hourly"]
-    labels = [
-        "temperature_2m",
-        "apparent_temperature"
-    ]
-    series = obj_properties_from_strings(weather_forecast, params["hourly"])
-    return series, labels
-
-def obj_properties_from_strings(obj, ls: list[str]) -> list[any]:
-    """
-    Example: `["height", "width"]` -> `[obj.height, obj.width]`
-    """
-    properties = []
-    for property_str in ls:
-        properties.append(getattr(obj, property_str, None))
-    return properties
 
 
 if __name__ == "__main__":
