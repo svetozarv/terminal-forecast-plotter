@@ -1,13 +1,18 @@
-import asyncio
 import logging
+from typing import Any
 
-logging.getLogger("terminal_user_interface")
-logging.basicConfig(filename='terminal_user_interface.log', level=logging.INFO, filemode="w+")
 import peewee as pw
 from textual import on, work
 from textual.app import App, ComposeResult
 from textual.binding import Binding
-from textual.containers import Center, Container, Grid, HorizontalGroup, VerticalScroll
+from textual.containers import (
+    Center,
+    Container,
+    Grid,
+    Horizontal,
+    HorizontalGroup,
+    VerticalScroll,
+)
 from textual.events import ScreenResume, ScreenSuspend
 from textual.screen import ModalScreen, Screen
 from textual.widgets import (
@@ -32,28 +37,42 @@ from database_orm import (
     MIN_TEMP,
     MIN_WINDSPEED,
     Alert,
+    Favourite,
 )
 from my_weather_app import MyWeatherApp
 
+logging.getLogger("terminal_user_interface")
+logging.basicConfig(filename='terminal_user_interface.log', level=logging.INFO, filemode="w+")
+
 
 class MainScreen(Screen):
+    main_help_label = "Hi!\nWelcome to terminal_forecast_plotter!\n" + \
+        "Start by pressing 'w' and entering a city.\nAlert warnings will appear on this screen."
+
     def compose(self) -> ComposeResult:
-        # TODO: Welcome label
-        # yield Placeholder("MainScreen")
+        with Center():
+            yield Label(self.main_help_label, id="main_help_label")
         with Center():
             yield Label("Alert has been triggered!\n", id="alert_has_been_triggered_label")
+        with Center():
+            yield VerticalScroll(classes="main_warning_labels_vertical_scroll")
         yield Footer()
 
     @on(ScreenResume)
     def check_alert_on_resume(self):
-        self.screen.remove_children(".alert_labels")
+        app.asked_for_comparable_city = False
+        main_warning_labels_vertical_scroll = self.screen.query_one(VerticalScroll)
+        main_warning_labels_vertical_scroll.remove_children(".alert_labels")
         self.check_alerts()
+        if not main_warning_labels_vertical_scroll.children:
+            self.query_one("#main_help_label", Label).update(self.main_help_label)
 
     def on_mount(self):
-        self.screen.query_one("#alert_has_been_triggered_label", Label).display = False
         self.check_alerts()
 
     def check_alerts(self):
+        self.screen.query_one("#alert_has_been_triggered_label", Label).display = False
+        self.query_one("#main_help_label", Label).display = True
         for alert in list(Alert.select()):
             self.check_alert_for_city(alert)
 
@@ -85,6 +104,8 @@ class MainScreen(Screen):
             )
 
     def add_warning_label(self, text: str, severity: str):
+        main_help_label = self.query_one("#main_help_label", Label)
+        main_help_label.display = False
         alert_triggered_label = self.screen.query_one("#alert_has_been_triggered_label", Label)
         alert_triggered_label.display = True
 
@@ -98,42 +119,62 @@ class MainScreen(Screen):
         if severity == "CRITICAL":
             css_classes += "critical_label"
 
-        self.screen.mount(Label(text, classes=css_classes))
+        self.screen.query_one(VerticalScroll).mount(Label(text, classes=css_classes))
 
 
-class AskForCityScreen(Screen):
+class AskForCityScreen(ModalScreen):
     def compose(self) -> ComposeResult:
-        help_label = "Hi! In this place you can check the weather in " + \
-            "any place in the world by typing it in " + \
-            "the field below."
         with Center():
-            yield Label(help_label, classes="help_label")
+            yield Label("", classes="help_label")
         with Center():
             yield Input(placeholder="Enter location...", id="city_input")
         with Center():
-            yield Pretty([])
+            yield Label("Press 'esc' to exit.", id="press_esc")
         yield Footer()
+
+    def on_mount(self):
+        self.query_one(".help_label", Label).update(app.ask_city_label)
+
+    def on_input_submitted(self):
+        city_prompt = self.get_city_prompt()
+        if not self.validate_city_name(city_prompt):
+            app.display_dialog("Sorry, we couldn't retrive data for the provided location.")
+            return
+        app.pop_screen()
+        app.switch_screen("plot")
 
     def get_city_prompt(self) -> str:
         # TODO: add validataion, results first, then show if results not None else display msg
         app.city_prompt = self.query_one(Input).value
         return app.city_prompt
 
-    def on_input_submitted(self):
-        self.query_one(Pretty).update(self.get_city_prompt())
-        app.switch_screen("plot")
+    def validate_city_name(self, city_prompt: str) -> bool: #TODO
+        return bool(app.my_weather_app.resolve_location(location=city_prompt))
 
-class DialogPopupScreen(ModalScreen):    # TODO:
+
+class DialogPopupScreen(ModalScreen):
+    """Simple informative pop up screen with text and 'Ok'."""
     def compose(self) -> ComposeResult:
-        with Center():
-            yield Label(app.dialog_popup_text)
-            yield Button("OK")
+        with VerticalScroll(id="dialog_pop_up"):
+            with Center():
+                yield Label(app.dialog_popup_text)
+            with Center():
+                yield Button("OK")
+
+    def on_mount(self):
+        self.query_one(Label).update(app.dialog_popup_text)
+        self.query_one(Button).focus()
 
     @on(Button.Pressed)
     def close(self):
         app.pop_screen()
 
+
 class AskAlertDetailsScreen(ModalScreen):
+    BINDINGS = [
+        Binding("escape", "app.pop_screen()", show=False, priority=True),
+    ]
+
     def compose(self) -> ComposeResult:
         dialog_message = "Please, provide the temperatures for alert to trigger. " + \
             "You can leave some fields empty."
@@ -146,7 +187,6 @@ class AskAlertDetailsScreen(ModalScreen):
             Input(placeholder="Max. wind speed, m/s", type='number', id="max_windspeed_input", valid_empty=True),
             id="ask_for_alert_grid",
         )
-        # TODO: add validation for min and max temps and chars in the input (in can be "")
 
     def add_alert(self):
         name = self.screen.query_one("#name", Input).value
@@ -166,6 +206,8 @@ class AskAlertDetailsScreen(ModalScreen):
             min_wind_speed = MIN_WINDSPEED
         if not max_wind_speed:
             max_wind_speed = MAX_WINDSPEED
+        if not app.alert_severity_button_label:
+            app.alert_severity_button_label = "INFO"
         logging.info(f"Values: {name} {min_temp} {max_temp} {min_wind_speed} {max_wind_speed}")
 
         if name == "^Q":  # user pressed 'exit' while in the screen
@@ -177,6 +219,7 @@ class AskAlertDetailsScreen(ModalScreen):
         Alert.get_or_create(
             name=name,
             city_name=app.my_weather_app.current_city_name(),
+            severity=app.alert_severity_button_label,
             lat=app.my_weather_app.current_coords[0],
             lon=app.my_weather_app.current_coords[1],
             min_temp=min_temp,
@@ -184,51 +227,80 @@ class AskAlertDetailsScreen(ModalScreen):
             min_wind_speed=min_wind_speed,
             max_wind_speed=max_wind_speed,
         )
-        logging.info("Alert was added.")
+        logging.info("Alert was added to db.")
 
     @on(Input.Submitted)
     def process_submit(self):
-        self.add_alert()
-        app.dialog_popup_text = "Saved!"
-        app.switch_screen("dialog_popup")
+        """Process provided values from user."""
+
+        def after_severity_input(*args):
+            """Called when AskAlertSeverity is dismissed."""
+            self.add_alert()
+            # cannot display_dialog() beacuse we don't want to return to AskAlertDetails
+            app.dialog_popup_text = "Saved!"
+            app.switch_screen("dialog_popup")
+
+        app.push_screen("ask_alert_severity", after_severity_input)
+
+
+class AskAlertSeverity(ModalScreen):
+    def compose(self) -> ComposeResult:
+        with Center():
+            yield Label("Pick your alert's severity:")
+        with Horizontal():
+            yield Button("INFO", variant="primary")
+            yield Button("WARNING", variant="warning")
+            yield Button("DANGER", variant="error")
+            yield Button("CRITICAL", variant="primary", id="critical_button")
+
+    @on(Button.Pressed)
+    def close(self, event: Button.Pressed):
+        app.alert_severity_button_label = event.button.label
+        self.dismiss()
 
 
 class PlotScreen(Screen):
     BINDINGS = [
         ("t", "toggle_precision_mode", "Toggle daily/hourly"),
-        ("s", "save_to_favourties", "Save to favourites"),
+        ("c", "add_city_to_plot", "Compare to city"),
         ("a", "ask_for_details", "Add alert"),
+        ("s", "save_to_favourties", "Save to favourites"),
     ]
 
     def compose(self) -> ComposeResult:
-        # yield Placeholder("PlotScreen")
         yield PlotextPlot(id="plotext-plot")
         yield Footer()
 
-    def on_mount(self):
-        self.screen.loading = True
-        self.draw_hourly()
-
     @on(ScreenResume)
-    def draw_hourly_on_resume(self):
-        self.screen.loading = True
-        self.draw_hourly()
+    def on_mount(self):
+        if app.asked_for_comparable_city:
+            self.draw_hourly(clear=False)
+        else:
+            self.draw_hourly()
+        app.refresh_bindings()
 
-    def draw_hourly(self):
+    def draw_hourly(self, clear=True):
         plt = self.query_one(PlotextPlot).plt
-        app.my_weather_app.draw_hourly_plot(plt, app.city_prompt)
+
+        # bad solution. better to redraw plot with both series
+        # the plot can be cropped
+        app.my_weather_app.draw_hourly_plot(plt, app.city_prompt, clear=clear)
+
         self.query_one(PlotextPlot).refresh()
-        self.screen.loading = False
         self.displaying_daily = False
         self.displaying_hourly = True
 
-    def draw_daily(self):
+    def draw_daily(self, clear=True):
         plt = self.query_one(PlotextPlot).plt
-        app.my_weather_app.draw_daily_plot(plt, app.city_prompt)
+        app.my_weather_app.draw_daily_plot(plt, app.city_prompt, clear)
         self.query_one(PlotextPlot).refresh()
-        self.screen.loading = False
         self.displaying_daily = True
         self.displaying_hourly = False
+
+    def action_add_city_to_plot(self):
+        app.asked_for_comparable_city = True
+        app.ask_city_label = "What city would you like to compare the forecast to?"
+        app.push_screen("ask_for_city")
 
     def action_ask_for_details(self):
         """Handles keybinding."""
@@ -236,59 +308,72 @@ class PlotScreen(Screen):
 
     def action_save_to_favourties(self):
         """Handles keybinding."""
-        if Alert.get_or_none(Alert.city_name == app.my_weather_app.current_city_name()):
+        if Favourite.get_or_none(city_name=app.my_weather_app.current_city_name()):
             app.display_dialog("The city is already in your favourites.")
             return
-        Alert(
-            city_name=app.my_weather_app.current_city_name(),
-            lat=app.my_weather_app.current_coords[0],
-            lon=app.my_weather_app.current_coords[1],
-        ).save()
+        Favourite(city_name=app.my_weather_app.current_city_name()).save()
         app.display_dialog("Saved!")
-        # self.screen.styles.background = "lime"
-        # self.screen.styles.animate("opacity", value=0.0, duration=1.0)
 
     def action_toggle_precision_mode(self):
         """Handles keybinding."""
-        self.screen.loading = True
         if self.displaying_daily:
             self.draw_hourly()
         else:
             self.draw_daily()
+
+    def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
+        """Check if an action may run."""
+        if app.asked_for_comparable_city:
+            if action == "switch_to_screen" and parameters[0] == "main":
+                return True
+            return False
+        return True
 
 
 class FavouritesScreen(Screen):
     def compose(self) -> ComposeResult:
         # yield Placeholder(f"{app.screen}")
         with Center():
-            yield Label()
+            yield Label("", id="favourites_help")
         with Center():
             yield ListView(initial_index=0)
+        with Center():
+            yield Label("You can pick one to check it's forecast.", id="fav_pick")
         yield Footer()
 
     @on(ScreenResume)
     def on_mount(self):
-        # get a list of all city names as strings from db
-        favourites = list(map(lambda favourite: favourite.city_name, Alert.select(Alert.city_name)))
-        label = self.screen.query_one(Label)
+        fav_pick_label = self.screen.query_one("#fav_pick", Label)
+        favourites = self.get_favourites_from_db()
+
+        label = self.screen.query_one("#favourites_help", Label)
         if not favourites:
             label.update("You haven't saved any cities yet.")
+            fav_pick_label.display = False
         else:
             label.update("Your favourite cities:")
+            fav_pick_label.display = True
 
         list_view = self.screen.query_one(ListView)
         list_view.clear()
         for favourite in favourites:
             list_view.append(ListItem(Label(favourite)))
 
+    def get_favourites_from_db(self) -> list[str]:
+        # get a list of all city names as strings from db
+        return list(map(lambda f: f.city_name, Favourite.select(Favourite.city_name)))
+
     @on(ListView.Selected)
     def get_plot_for_city(self):
         highlighted_index = self.screen.query_one(ListView).index
-        app.city_prompt = Alert.select(Alert.city_name)[highlighted_index].city_name    # TODO: bottleneck to remove
+        app.city_prompt = Favourite.select(Favourite.city_name)[highlighted_index].city_name    # TODO: bottleneck to remove
         app.switch_screen("plot")
 
 
 class AlertsScreen(Screen):
+    BINDINGS = [
+        ("e", "erase_alerts", "Erase alerts"),
+    ]
     COLUMNS = [
         "№",
         "City",
@@ -303,15 +388,22 @@ class AlertsScreen(Screen):
 
     def compose(self) -> ComposeResult:
         # yield Placeholder("Alerts Screen")
-        yield Label("", classes="help_label")
-        yield DataTable(id="alerts_data_table")
+        with Center():
+            yield Label("", classes="help_label")
+        with Center():
+            yield DataTable(id="alerts_data_table")
         yield Footer()
 
     @on(ScreenResume)
     def update_rows(self):
-        placeholder = "-not set-"
         data_table = self.screen.query_one("#alerts_data_table", DataTable)
         data_table.clear()
+        alerts = self.get_alerts_from_db()
+        data_table.add_rows(alerts)
+        self.display_table(data_table)
+
+    def get_alerts_from_db(self) -> list[Any]:
+        placeholder = "-not set-"
         alerts = list(
             map(
                 lambda a: (
@@ -327,20 +419,32 @@ class AlertsScreen(Screen):
                 Alert.select(),
             )
         )
-        data_table.add_rows(alerts)
+        return alerts
 
     def on_mount(self):
         data_table = self.screen.query_one("#alerts_data_table", DataTable)
         data_table.add_columns(*self.COLUMNS)
         self.update_rows()
+        self.display_table(data_table)
 
+    def display_table(self, data_table: DataTable) -> bool:
+        """
+        Displays the table if db is not empty and returns True else doesn't and returns False.
+        """
         label = self.screen.query_one(Label)
         if data_table.row_count == 0:
             label.update("You haven't saved any cities yet.")
             data_table.display = False
+            return False
         else:
             label.update(self.label)
             data_table.display = True
+            return True
+
+    def action_erase_alerts(self):
+        for query in Alert.select():
+            query.delete_instance()
+        app.switch_to_screen('main')
 
 
 class TerminalUserInterface(App):
@@ -349,10 +453,15 @@ class TerminalUserInterface(App):
     db.connect()
     city_prompt = None  # to store the city name entered by user between screens
     dialog_popup_text = None
+    alert_severity_button_label = None
+    ask_city_label = "Hi! In this place you can check the weather in\n" + \
+            "any place in the world by typing it in\n " + \
+            "the field below."
+    asked_for_comparable_city = False
 
     CSS_PATH = "terminal_user_interface.tcss"
     BINDINGS = [
-        ("w", "switch_to_screen('ask_for_city')", "Check weather"),
+        ("w", "push_screen('ask_for_city')", "Check weather"),
         ("f", "switch_to_screen('favourites')", "Favourites"),
         ("a", "switch_to_screen('alerts')", "Alerts"),
         Binding("m, escape", "switch_to_screen('main')", "Return to main", priority=True),
@@ -363,9 +472,10 @@ class TerminalUserInterface(App):
         "main": MainScreen,
         "favourites": FavouritesScreen,
         "alerts": AlertsScreen,
-        "ask_for_city": AskForCityScreen,
         "plot": PlotScreen,
+        "ask_for_city": AskForCityScreen,
         "ask_alert_details": AskAlertDetailsScreen,
+        "ask_alert_severity": AskAlertSeverity,
         "dialog_popup": DialogPopupScreen,
     }
 
@@ -379,9 +489,13 @@ class TerminalUserInterface(App):
         # self.theme = "nord"
         self.push_screen("main")
 
-    def action_switch_to_screen(self, name):
+    def switch_to_screen(self, name):
         self.switch_screen(name)
         self.refresh_bindings()
+
+    def action_switch_to_screen(self, name):
+        """Handles keybinding."""
+        self.switch_to_screen(name)
 
     def display_dialog(self, text):
         """Displays a modal screen with text."""
@@ -396,13 +510,21 @@ class TerminalUserInterface(App):
         if isinstance(self.screen, MainScreen):
             if action == "switch_to_screen" and parameters[0] == "main":
                 return False
-        if not isinstance(self.screen, PlotScreen):
-            if action == "draw_daily":
+        if isinstance(self.screen, AlertsScreen):
+            if action == "switch_to_screen" and parameters[0] == "alerts":
+                return False
+        if isinstance(self.screen, FavouritesScreen):
+            if action == "switch_to_screen" and parameters[0] == "favourites":
                 return False
         if isinstance(self.screen, PlotScreen):
+            if self.asked_for_comparable_city:
+                if action == "switch_to_screen" and parameters[0] == "main":
+                    return True
+                else:
+                    return False  # disable binds except return to main for city forecasts comparison
             if action == "switch_to_screen" and parameters[0] == "main":
                 return True
-            if action == "switch_to_screen" and parameters[0] == "ask_for_city":
+            if action == "push_screen" and parameters[0] == 'ask_for_city':
                 return False
             if action == "switch_to_screen" and parameters[0] == "alerts":
                 return False
@@ -410,16 +532,6 @@ class TerminalUserInterface(App):
                 return False
             if action == "toggle_dark":
                 return False
-        if isinstance(self.screen, AskAlertDetailsScreen):
-            pass
-        if isinstance(self.screen, AlertsScreen):
-            if action == "switch_to_screen" and parameters[0] == "alerts":
-                return False
-        if isinstance(self.screen, FavouritesScreen):
-            if action == "switch_to_screen" and parameters[0] == "favourites":
-                return False
-        if isinstance(self.screen, AskForCityScreen):
-            pass
         return True
 
 

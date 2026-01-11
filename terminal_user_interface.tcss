@@ -5,11 +5,11 @@ Label {
     align: center middle;
     padding: 1 2;
     # width: auto;
-    border: wide white;
+    # border: wide white;a
 }
 
-VerticalGroup {
-    content-align: center middle;
+Container {
+    border: wide white;
 }
 
 Screen {
@@ -42,6 +42,9 @@ Button {
 }
 
 # --------- AskForCityScreen ---------
+AskForCityScreen {
+    background: $background;
+}
 #city_input {
     width: 40%;
 }
@@ -57,19 +60,33 @@ Button {
     margin: 1;
 }
 
-# --------- MainScreen ---------
+#dialog_pop_up {
+    content-align: center middle;
+    width: auto;
+    height: auto;
+}
+
+# ------------ MainScreen ------------
+#main_help_label {
+    color: blanchedalmond;
+}
 #alert_has_been_triggered_label {
     color: red;
     border: red;
     # width: auto;
+    height: 5;
+}
+.main_warning_labels_vertical_scroll  {
+    content-align: center middle;
+    text-align: center;
+    align: center middle;
+    # border: wide white;
     height: auto;
 }
-
 .alert_labels {
     color: red;
     padding: 0;
 }
-
 .info_label {
     color: dodgerblue;
 }
@@ -84,6 +101,17 @@ Button {
 }
 
 # --------- AskAlertDetailsScreen ---------
+#critical_button {
+    color: violet;
+    background: violet;
+}
+
+Horizontal {
+    content-align: center middle;
+    align: center middle;
+    height: auto;
+}
+
 #name {
     column-span: 2;
 }
@@ -109,7 +137,7 @@ Button {
 
     # padding: 0 1;
     width: 80;
-    height: 60%;
+    height: 20;
     border: thick $background 80%;
     background: $surface;
 }
