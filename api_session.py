@@ -28,6 +28,7 @@ cities = {
     "Warszawa": (52.2297, 21.0122),
 }
 
+
 class ApiSession:
     def __init__(self, latitude: float = None, longitude: float = None, allow_none=True):
         """
@@ -49,6 +50,7 @@ class ApiSession:
         self.__cache_session = requests_cache.CachedSession(".cache", expire_after=3600)   # in seconds
         self.__retry_session = retry(self.__cache_session, retries=5, backoff_factor=0.2)
         self.__openmeteo = openmeteo_requests.Client(session=self.__retry_session)
+        # TODO: add support for multiple weather APIs??
 
         self.__url = "https://api.open-meteo.com/v1/forecast"
         self.__params = {
@@ -105,8 +107,8 @@ class ApiSession:
 
     def __same_coords_and_not_enough_time_passed(self, latitude, longitude) -> bool:
         return self.__last_api_response is not None and \
-            latitude == self.__last_api_response.Latitude() and \
-            longitude == self.__last_api_response.Longitude() and \
+            (latitude == self.__last_api_response.Latitude() or latitude is None) and \
+            (longitude == self.__last_api_response.Longitude() or longitude is None) and \
             self.__last_api_response_time is not None and \
             time.time() - self.__last_api_response_time < 3600
 
