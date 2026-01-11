@@ -6,6 +6,7 @@ MAX_TEMP = 100   # there are probably won't be higher temps (at least on Earth)
 MIN_WINDSPEED = 0.0  # in m/s
 MAX_WINDSPEED = 343.0
 db = SqliteDatabase(DATABASE_FILENAME)
+# TODO: migrate to SQLAlchemy?
 
 
 class BaseModel(Model):
