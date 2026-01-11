@@ -1,0 +1,11 @@
+textual
+textual_plotext
+plotext
+numpy
+pandas
+geopy
+peewee
+openmeteo_requests
+requests_cache
+retry_requests
+pytest
