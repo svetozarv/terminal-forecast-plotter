@@ -6,10 +6,11 @@ from geopy.geocoders import Nominatim
 logging.getLogger("geocoder")
 logging.basicConfig(filename='geocoder.log', level=logging.INFO, filemode="w+")
 
+
 class Geocoder:
     def __init__(self):
         self.geolocator = Nominatim(user_agent="my_geopy_app")
-        self.__cache = {}           # coords -> city_name  |  might as well be a separate class
+        self.__cache = {}           # coords -> city_name  |  might as well be a separate class?
         self.__cache_reverse = {}   # city_name -> coords
 
     def convert_coords_to_city_name(self, latitude: float, longitude: float) -> str | None:
@@ -23,10 +24,12 @@ class Geocoder:
 
         try:
             location = self.geolocator.reverse(f"{latitude}, {longitude}", language="en", exactly_one=True)
+            if location is None:
+                return f"{latitude}, {longitude}"
             display_name = location.raw.get("display_name", f"{latitude}, {longitude}")
             logging.info(f"Geocoder made call: {(latitude, longitude)} -> {display_name}")
             address: dict = location.raw.get("address", None)
-        except GeopyError as e:  # any GeoCoder exeption
+        except GeopyError:  # any GeoCoder exception
             return f"{latitude}, {longitude}"
 
         city_name = address.get("city", address.get("town", address.get("village", None)))
@@ -50,8 +53,9 @@ class Geocoder:
 
         try:
             location = self.geolocator.geocode(f"{city_name}, {country_name if country_name else ''}", language="en")
-            if location is None: return None
-        except GeopyError as e:
+            if location is None:
+                return None
+        except GeopyError:
             return None
         coords = (float(location.raw["lat"]), float(location.raw["lon"]))
         logging.info(f"Geocoder made call: {city_name} -> {coords}")
@@ -91,8 +95,8 @@ if __name__ == "__main__":
     fizz = geo.convert_city_name_to_coords("Warszawa", "Polska")
     fizz = geo.convert_city_name_to_coords("Warszawa", "Polska")  # cache hit
     fizz = geo.convert_city_name_to_coords("Warsaw", "Poland")
-    print(f"Coodninates: {fizz}")
+    print(f"Coordinates: {fizz}")
     buzz = geo.convert_city_name_to_coords("Zakopane")
     buzz = geo.convert_city_name_to_coords("zakopane")
     buzz = geo.convert_city_name_to_coords("Zakopane")  # cache hit
-    print(f"Coodninates: {buzz}")
+    print(f"Coordinates: {buzz}")
