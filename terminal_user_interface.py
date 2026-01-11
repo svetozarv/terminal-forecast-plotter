@@ -122,143 +122,6 @@ class MainScreen(Screen):
         self.screen.query_one(VerticalScroll).mount(Label(text, classes=css_classes))
 
 
-class AskForCityScreen(ModalScreen):
-    def compose(self) -> ComposeResult:
-        with Center():
-            yield Label("", classes="help_label")
-        with Center():
-            yield Input(placeholder="Enter location...", id="city_input")
-        with Center():
-            yield Label("Press 'esc' to exit.", id="press_esc")
-        yield Footer()
-
-    def on_mount(self):
-        self.query_one(".help_label", Label).update(app.ask_city_label)
-
-    def on_input_submitted(self):
-        city_prompt = self.get_city_prompt()
-        if not self.validate_city_name(city_prompt):
-            app.display_dialog("Sorry, we couldn't retrive data for the provided location.")
-            return
-        app.pop_screen()
-        app.switch_screen("plot")
-
-    def get_city_prompt(self) -> str:
-        # TODO: add validataion, results first, then show if results not None else display msg
-        app.city_prompt = self.query_one(Input).value
-        return app.city_prompt
-
-    def validate_city_name(self, city_prompt: str) -> bool: #TODO
-        return bool(app.my_weather_app.resolve_location(location=city_prompt))
-
-
-class DialogPopupScreen(ModalScreen):
-    """Simple informative pop up screen with text and 'Ok'."""
-    def compose(self) -> ComposeResult:
-        with VerticalScroll(id="dialog_pop_up"):
-            with Center():
-                yield Label(app.dialog_popup_text)
-            with Center():
-                yield Button("OK")
-
-    def on_mount(self):
-        self.query_one(Label).update(app.dialog_popup_text)
-        self.query_one(Button).focus()
-
-    @on(Button.Pressed)
-    def close(self):
-        app.pop_screen()
-
-
-class AskAlertDetailsScreen(ModalScreen):
-    BINDINGS = [
-        Binding("escape", "app.pop_screen()", show=False, priority=True),
-    ]
-
-    def compose(self) -> ComposeResult:
-        dialog_message = "Please, provide the temperatures for alert to trigger. " + \
-            "You can leave some fields empty."
-        yield Grid(
-            Label(dialog_message, id="ask_for_alert_dialog"),
-            Input(placeholder="Name/description", id="name", valid_empty=True),
-            Input(placeholder="Min. temp. °C", type='number', id="min_temp_input", valid_empty=True),
-            Input(placeholder="Max. temp. °C", type='number', id="max_temp_input", valid_empty=True),
-            Input(placeholder="Min. wind speed, m/s", type='number', id="min_windspeed_input", valid_empty=True),
-            Input(placeholder="Max. wind speed, m/s", type='number', id="max_windspeed_input", valid_empty=True),
-            id="ask_for_alert_grid",
-        )
-
-    def add_alert(self):
-        name = self.screen.query_one("#name", Input).value
-        min_temp = self.screen.query_one("#min_temp_input", Input).value
-        max_temp = self.screen.query_one("#max_temp_input", Input).value
-        min_wind_speed = self.screen.query_one("#min_windspeed_input", Input).value
-        max_wind_speed = self.screen.query_one("#max_windspeed_input", Input).value
-
-        # if user hasn't provided values (they are "")
-        if not name:
-            name = "-"
-        if not min_temp:
-            min_temp = MIN_TEMP
-        if not max_temp:
-            max_temp = MAX_TEMP
-        if not min_wind_speed:
-            min_wind_speed = MIN_WINDSPEED
-        if not max_wind_speed:
-            max_wind_speed = MAX_WINDSPEED
-        if not app.alert_severity_button_label:
-            app.alert_severity_button_label = "INFO"
-        logging.info(f"Values: {name} {min_temp} {max_temp} {min_wind_speed} {max_wind_speed}")
-
-        if name == "^Q":  # user pressed 'exit' while in the screen
-            logging.info("Detected exit input. add_alert aborted.")
-            return
-        if not min_temp and not max_temp and not min_wind_speed and not max_wind_speed:
-            logging.info("No values provided. add_alert aborted.")
-            return
-        Alert.get_or_create(
-            name=name,
-            city_name=app.my_weather_app.current_city_name(),
-            severity=app.alert_severity_button_label,
-            lat=app.my_weather_app.current_coords[0],
-            lon=app.my_weather_app.current_coords[1],
-            min_temp=min_temp,
-            max_temp=max_temp,
-            min_wind_speed=min_wind_speed,
-            max_wind_speed=max_wind_speed,
-        )
-        logging.info("Alert was added to db.")
-
-    @on(Input.Submitted)
-    def process_submit(self):
-        """Process provided values from user."""
-
-        def after_severity_input(*args):
-            """Called when AskAlertSeverity is dismissed."""
-            self.add_alert()
-            # cannot display_dialog() beacuse we don't want to return to AskAlertDetails
-            app.dialog_popup_text = "Saved!"
-            app.switch_screen("dialog_popup")
-
-        app.push_screen("ask_alert_severity", after_severity_input)
-
-
-class AskAlertSeverity(ModalScreen):
-    def compose(self) -> ComposeResult:
-        with Center():
-            yield Label("Pick your alert's severity:")
-        with Horizontal():
-            yield Button("INFO", variant="primary")
-            yield Button("WARNING", variant="warning")
-            yield Button("DANGER", variant="error")
-            yield Button("CRITICAL", variant="primary", id="critical_button")
-
-    @on(Button.Pressed)
-    def close(self, event: Button.Pressed):
-        app.alert_severity_button_label = event.button.label
-        self.dismiss()
-
-
 class PlotScreen(Screen):
     BINDINGS = [
         ("t", "toggle_precision_mode", "Toggle daily/hourly"),
@@ -447,6 +310,143 @@ class AlertsScreen(Screen):
         app.switch_to_screen('main')
 
 
+class AskForCityModal(ModalScreen):
+    def compose(self) -> ComposeResult:
+        with Center():
+            yield Label("", classes="help_label")
+        with Center():
+            yield Input(placeholder="Enter location...", id="city_input")
+        with Center():
+            yield Label("Press 'esc' to exit.", id="press_esc")
+        yield Footer()
+
+    def on_mount(self):
+        self.query_one(".help_label", Label).update(app.ask_city_label)
+
+    def on_input_submitted(self):
+        city_prompt = self.get_city_prompt()
+        if not self.validate_city_name(city_prompt):
+            app.display_dialog("Sorry, we couldn't retrive data for the provided location.")
+            return
+        app.pop_screen()
+        app.switch_screen("plot")
+
+    def get_city_prompt(self) -> str:
+        # TODO: add validataion, results first, then show if results not None else display msg
+        app.city_prompt = self.query_one(Input).value
+        return app.city_prompt
+
+    def validate_city_name(self, city_prompt: str) -> bool: #TODO
+        return bool(app.my_weather_app.resolve_location(location=city_prompt))
+
+
+class AskAlertDetailsModal(ModalScreen):
+    BINDINGS = [
+        Binding("escape", "app.pop_screen()", show=False, priority=True),
+    ]
+
+    def compose(self) -> ComposeResult:
+        dialog_message = "Please, provide the temperatures for alert to trigger. " + \
+            "You can leave some fields empty."
+        yield Grid(
+            Label(dialog_message, id="ask_for_alert_dialog"),
+            Input(placeholder="Name/description", id="name", valid_empty=True),
+            Input(placeholder="Min. temp. °C", type='number', id="min_temp_input", valid_empty=True),
+            Input(placeholder="Max. temp. °C", type='number', id="max_temp_input", valid_empty=True),
+            Input(placeholder="Min. wind speed, m/s", type='number', id="min_windspeed_input", valid_empty=True),
+            Input(placeholder="Max. wind speed, m/s", type='number', id="max_windspeed_input", valid_empty=True),
+            id="ask_for_alert_grid",
+        )
+
+    def add_alert(self):
+        name = self.screen.query_one("#name", Input).value
+        min_temp = self.screen.query_one("#min_temp_input", Input).value
+        max_temp = self.screen.query_one("#max_temp_input", Input).value
+        min_wind_speed = self.screen.query_one("#min_windspeed_input", Input).value
+        max_wind_speed = self.screen.query_one("#max_windspeed_input", Input).value
+
+        # if user hasn't provided values (they are "")
+        if not name:
+            name = "-"
+        if not min_temp:
+            min_temp = MIN_TEMP
+        if not max_temp:
+            max_temp = MAX_TEMP
+        if not min_wind_speed:
+            min_wind_speed = MIN_WINDSPEED
+        if not max_wind_speed:
+            max_wind_speed = MAX_WINDSPEED
+        if not app.alert_severity_button_label:
+            app.alert_severity_button_label = "INFO"
+        logging.info(f"Values: {name} {min_temp} {max_temp} {min_wind_speed} {max_wind_speed}")
+
+        if name == "^Q":  # user pressed 'exit' while in the screen
+            logging.info("Detected exit input. add_alert aborted.")
+            return
+        if not min_temp and not max_temp and not min_wind_speed and not max_wind_speed:
+            logging.info("No values provided. add_alert aborted.")
+            return
+        Alert.get_or_create(
+            name=name,
+            city_name=app.my_weather_app.current_city_name(),
+            severity=app.alert_severity_button_label,
+            lat=app.my_weather_app.current_coords[0],
+            lon=app.my_weather_app.current_coords[1],
+            min_temp=min_temp,
+            max_temp=max_temp,
+            min_wind_speed=min_wind_speed,
+            max_wind_speed=max_wind_speed,
+        )
+        logging.info("Alert was added to db.")
+
+    @on(Input.Submitted)
+    def process_submit(self):
+        """Process provided values from user."""
+
+        def after_severity_input(*args):
+            """Called when AskAlertSeverity is dismissed."""
+            self.add_alert()
+            # cannot display_dialog() beacuse we don't want to return to AskAlertDetails
+            app.dialog_popup_text = "Saved!"
+            app.switch_screen("dialog_popup")
+
+        app.push_screen("ask_alert_severity", after_severity_input)
+
+
+class AskAlertSeverityModal(ModalScreen):
+    def compose(self) -> ComposeResult:
+        with Center():
+            yield Label("Pick your alert's severity:")
+        with Horizontal():
+            yield Button("INFO", variant="primary")
+            yield Button("WARNING", variant="warning")
+            yield Button("DANGER", variant="error")
+            yield Button("CRITICAL", variant="primary", id="critical_button")
+
+    @on(Button.Pressed)
+    def close(self, event: Button.Pressed):
+        app.alert_severity_button_label = event.button.label
+        self.dismiss()
+
+
+class DialogPopupModal(ModalScreen):
+    """Simple informative pop up screen with text and 'Ok'."""
+    def compose(self) -> ComposeResult:
+        with VerticalScroll(id="dialog_pop_up"):
+            with Center():
+                yield Label(app.dialog_popup_text)
+            with Center():
+                yield Button("OK")
+
+    def on_mount(self):
+        self.query_one(Label).update(app.dialog_popup_text)
+        self.query_one(Button).focus()
+
+    @on(Button.Pressed)
+    def close(self):
+        app.pop_screen()
+
+
 class TerminalUserInterface(App):
     my_weather_app = MyWeatherApp()
     db = pw.SqliteDatabase(DATABASE_FILENAME)
@@ -470,13 +470,13 @@ class TerminalUserInterface(App):
     ]
     SCREENS = {
         "main": MainScreen,
+        "plot": PlotScreen,
         "favourites": FavouritesScreen,
         "alerts": AlertsScreen,
-        "plot": PlotScreen,
-        "ask_for_city": AskForCityScreen,
-        "ask_alert_details": AskAlertDetailsScreen,
-        "ask_alert_severity": AskAlertSeverity,
-        "dialog_popup": DialogPopupScreen,
+        "ask_for_city": AskForCityModal,
+        "ask_alert_details": AskAlertDetailsModal,
+        "ask_alert_severity": AskAlertSeverityModal,
+        "dialog_popup": DialogPopupModal,
     }
 
     def compose(self) -> ComposeResult:
@@ -537,5 +537,10 @@ class TerminalUserInterface(App):
 
 if __name__ == "__main__":
     app = TerminalUserInterface()
-    app.run()
-    app.db.close()
+
+    # In case of a crash, enshure the connection is closed
+    try:
+        app.run()
+    finally:
+        if not app.db.is_closed():
+            app.db.close()
