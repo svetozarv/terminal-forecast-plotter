@@ -13,8 +13,10 @@ class BaseModel(Model):
     class Meta:
         database = db    # This model uses the "user_settings.db" database. Mandatory attribute.
 
+
 class Favourite(BaseModel):  # A database table
     city_name = CharField()  # column on the table
+
 
 class Alert(BaseModel):
     city_name = CharField()
@@ -33,6 +35,9 @@ class Alert(BaseModel):
     # min_pressure = FloatField(default=0.0)
     # max_pressure = FloatField(default=2000.0)
     # ...
+    # TODO: it is possible to add more alerts, although it's not supported yet
+    # consider only ones that make sense
+
 
 # In order to start using the models, its necessary to create the tables.
 # This is a one-time operation and can be done quickly using the interactive interpreter
@@ -43,8 +48,10 @@ def initialize_db(db_filename):
 
     try:
         with open(db_filename) as file:
-            if not file: create_tables()
+            if not file:
+                create_tables()
     except FileNotFoundError:
         create_tables()
+
 
 initialize_db(DATABASE_FILENAME)
