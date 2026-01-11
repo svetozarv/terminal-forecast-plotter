@@ -1,5 +1,4 @@
 import datetime as dt
-import time
 from functools import singledispatch
 
 import pandas as pd
@@ -32,17 +31,18 @@ class Plotter:
         clear=True
     ):
         """
-        Draw a few plots on a sigle canvas (for instance: both temp and humidity on a single plot).
+        Draw a few plots on a single canvas (for instance: both temp and humidity on a single plot).
         len(series) and len(labels) should be equal but don't have to. The shorter one will limit the result.
 
         :param series_of_data_measurements: Is in fact a list of lists of data measurements, which are properties of
         `weather_forecast`
         :type series_of_data_measurements: list[ndarray]
-        :param labels: Description
+        :param labels: x axis' labels
         :type labels: list[str]
-        :param title: Description
+        :param title: title of the plot
         :type title: str
-        :param clear: Description
+        :param clear: Whether to clear the plot or draw on 'dirty'
+        :type clear: bool
         """
         plt = self.plt
         if clear:
@@ -59,12 +59,13 @@ class Plotter:
 
 # adapter for plotter
 @singledispatch
-def make_data_payload(weather_forecast: DailyWeatherForecast, params: list[str]) -> tuple[list[ndarray], list[str]]:
+def make_data_payload(weather_forecast: DailyWeatherForecast, params: dict[str]) -> tuple[list[ndarray], list[str]]:
     """
     :param params: is a list of requested from OpenMeteo API data (strings).
     Strings in params must be valid names of `weather_forecast`'s properties.
     """
     # edit the labels list to select the displayed data among requested
+    # TODO: add ability to plot all the data, or let user decide
     labels = [
         "temperature_2m_max",
         "temperature_2m_min",
@@ -76,8 +77,9 @@ def make_data_payload(weather_forecast: DailyWeatherForecast, params: list[str])
     series = obj_properties_from_strings(weather_forecast, params["daily"])
     return series, labels
 
+
 @make_data_payload.register(HourlyWeatherForecast)
-def _(weather_forecast: HourlyWeatherForecast, params: list[str]) -> list[ndarray]:
+def _(weather_forecast: HourlyWeatherForecast, params: dict[str]) -> list[ndarray]:
     # labels = params["hourly"]
     labels = [
         "temperature_2m",
