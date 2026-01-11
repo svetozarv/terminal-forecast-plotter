@@ -1,9 +1,6 @@
-import datetime as dt
-import time
 import logging
-logging.getLogger(__name__)
-logging.basicConfig(filename='logs/api_session.log', level=logging.INFO)
 import random
+import time
 from dataclasses import dataclass
 
 import openmeteo_requests
@@ -11,6 +8,9 @@ import pandas as pd
 import requests_cache
 from openmeteo_requests.Client import WeatherApiResponse
 from retry_requests import retry
+
+logging.getLogger("api_session")
+logging.basicConfig(filename='api_session.log', level=logging.INFO, filemode="w+")
 
 # https://open-meteo.com/en/docs
 # a dictionary of some major cities for random selection
@@ -41,8 +41,8 @@ class ApiSession:
         elif not isinstance(latitude, float) or not isinstance(longitude, float):  # coords provided, validate
             raise ValueError("Latitude and Longitude must be float values.")
 
-        logging.info(f"--------- Created ApiSession ---------")
-        logging.info(f"Default city for API session: ({latitude}, {longitude})")
+        logging.info("--------- Created ApiSession ---------")
+        logging.info(f"Default coords for API session: ({latitude}, {longitude})")
         self.change_default_location(latitude, longitude)
 
         # Setup the Open-Meteo API client with cache and retry on error
@@ -216,7 +216,7 @@ class CurrentWeatherForecast(WeatherForecast):
 
 @dataclass(frozen=True)
 class IntervalicWeatherForecast(WeatherForecast):
-    time: int
+    time: int   # start of measurements
     time_end: int
     interval: int
 
