@@ -2,6 +2,7 @@
 Terminal app for viewing weather forecast plots for (almost) any place on Earth.
 
 ![Demo](img/TerminalUserInterface_2026-06-05T21_27_48_930841.svg)
+![Demo](img/TerminalUserInterface_2026-06-05T21_27_14_389418.svg)
 
 ## How to run?
 1. Install dependencies (you may use venv)
@@ -27,5 +28,6 @@ Terminal app for viewing weather forecast plots for (almost) any place on Earth.
 
 - `terminal_user_interface.py` is a [`textual`](https://github.com/Textualize/textual) app that brings everything together.
 Below is a diagram of screens.
+
 ![Diagram](img/tui_screens.png)
 
