@@ -1,7 +1,7 @@
 ## What is this?
 Terminal app for viewing weather forecast plots for (almost) any place on Earth.
 
-<img width="500" height="685" alt="" src="https://github.com/user-attachments/assets/92e00d3c-02ef-4fc8-978e-559e287a5bd7" />
+![Demo](img/TerminalUserInterface_2026-06-05T21_27_48_930841.svg)
 
 ## How to run?
 1. Install dependencies (you may use venv)
@@ -13,7 +13,7 @@ Terminal app for viewing weather forecast plots for (almost) any place on Earth.
 ```python3 terminal_user_interface.py```
 
 ## How is implemented?
-<img width="571" height="261" alt="Diagram bez tytułu drawio (1)" src="https://github.com/user-attachments/assets/92482bb5-6209-4e0d-bfe7-bcc2cc6a4337" />
+![Diagram](img/my_weather_app.drawio.png)
 
 - `api_session.py` contains `ApiSession` class that implements the methods used to get data: `get_current_weather(lat, lon)`,`get_hourly_data(lat, lon)` and `get_daily_data(lat, lon)`. If latitude and longitude are not provided, a random default city is picked. These methods return objects of `CurrentWeatherForecast`, `HourlyWeatherForecast` and `DailyWeatherForecast` respectively, that represent the response returned by the [`OpenMeteo API`](https://open-meteo.com/en/docs).
 
@@ -27,5 +27,5 @@ Terminal app for viewing weather forecast plots for (almost) any place on Earth.
 
 - `terminal_user_interface.py` is a [`textual`](https://github.com/Textualize/textual) app that brings everything together.
 Below is a diagram of screens.
-<img width="478" height="339" alt="Diagram bez tytułu drawio" src="https://github.com/user-attachments/assets/e6a3cd70-c02f-4294-96df-ce8bcd8222b0" />
+![Diagram](img/tui_screens.png)
 
